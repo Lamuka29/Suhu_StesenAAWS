@@ -5,7 +5,6 @@ import os
 import calendar
 import io
 import streamlit as st
-import xlrd
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
