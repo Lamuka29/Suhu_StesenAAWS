@@ -17,7 +17,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🌧️ Temperature Data Analysis")
+st.title("🌡️ Temperature Data Analysis")
 st.caption("Pemprosesan, Quality Control dan Analisis Data Hujan Harian")
 # ============================================================
 # MONTHS
