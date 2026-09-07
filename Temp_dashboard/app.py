@@ -3063,7 +3063,7 @@ with main_tabs[1]:
                     bars = ax.bar(
                         months,
                         monthly_std.values,
-                        color=hist_color,
+                        color=st.session_state.hist_color,,
                         edgecolor="black",
                         linewidth=0.8
                     )
@@ -4423,7 +4423,7 @@ with main_tabs[2]:
                             ],
                             bins=20,
                             edgecolor="black",
-                            color=hist_color
+                            color=st.session_state.hist_color,
                         )
 
                         ax.axvline(
