@@ -643,30 +643,19 @@ with st.spinner(
     "⏳ Sedang memproses semua fail Excel..."
 ):
 
-    results = {}
+    results = []
 
     progress_bar = st.progress(0)
 
     for i, uploaded_file in enumerate(uploaded_files):
 
-        # Nama stesen berdasarkan nama fail
-        station_name = os.path.splitext(
-            uploaded_file.name
-        )[0]
+        result = analyze_file(
+            uploaded_file
+        )
 
-        try:
-
-            result = analyze_file(
-                uploaded_file
-            )
-
-            results[station_name] = result
-
-        except Exception as e:
-
-            st.error(
-                f"❌ Ralat memproses {station_name}: {e}"
-            )
+        results.append(
+            result
+        )
 
         progress_bar.progress(
             int(
@@ -685,15 +674,18 @@ with st.spinner(
 # SENARAI STESEN
 # ============================================================
 
-station_names = list(results.keys())
+station_names = []
 
-if not station_names:
+for result in results:
 
-    st.warning(
-        "⚠️ Tiada data stesen yang berjaya diproses."
-    )
+    if result.get(
+        "success",
+        False
+    ):
 
-    st.stop()
+        station_names.append(
+            result["station_name"]
+        )
 
 # ============================================================
 # CHECK RESULTS
