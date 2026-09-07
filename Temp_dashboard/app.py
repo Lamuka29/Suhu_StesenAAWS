@@ -206,17 +206,6 @@ YEAR_RANGE_TEXT = (
     f"{int(START_YEAR)}–{int(END_YEAR)}"
 )
 
-
-# ============================================================
-# SENARAI NAMA STESEN
-# ============================================================
-
-station_names = list(results.keys())
-
-if not station_names:
-    st.warning("Tiada data stesen yang berjaya diproses.")
-    st.stop()
-
 # ============================================================
 # SIDEBAR SETTINGS
 # ============================================================
@@ -684,6 +673,15 @@ with st.spinner(
 
     progress_bar.empty()
 
+# ============================================================
+# SENARAI NAMA STESEN
+# ============================================================
+
+station_names = list(results.keys())
+
+if not station_names:
+    st.warning("Tiada data stesen yang berjaya diproses.")
+    st.stop()
 
 # ============================================================
 # CHECK RESULTS
