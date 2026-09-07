@@ -896,91 +896,91 @@ main_tabs = st.tabs([
     "🔥 Suhu Tertinggi"
 ])
 
-    # ========================================================
-    # FILE HEADER
-    # ========================================================
-    st.divider()
+# ========================================================
+# FILE HEADER
+# ========================================================
+st.divider()
 
-    st.header(
-        f"📁 {original_file_name}"
+st.header(
+    f"📁 {original_file_name}"
+)
+
+st.caption(
+    f"📍 Station: {file_name} | "
+    f"📅 Target Year: {target_year}"
+)
+
+# ========================================================
+# READ ERRORS
+# ========================================================
+if read_errors:
+
+    with st.expander(
+        "⚠️ Sheet yang tidak berjaya dibaca"
+    ):
+
+        error_df = pd.DataFrame(
+            read_errors
+        )
+
+        st.dataframe(
+            error_df,
+            use_container_width=True,
+            hide_index=True
+        )
+# ========================================================
+# BASIC METRICS
+# ========================================================
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+
+    st.metric(
+        f"Mean {target_year}",
+        (
+            f"{target_mean:.2f} °C"
+            if pd.notna(target_mean)
+            else "N.A."
+        )
     )
 
-    st.caption(
-        f"📍 Station: {file_name} | "
-        f"📅 Target Year: {target_year}"
+with col2:
+
+    st.metric(
+        f"Minimum {target_year}",
+        (
+            f"{target_min:.2f} °C"
+            if pd.notna(target_min)
+            else "N.A."
+        )
     )
 
-    # ========================================================
-    # READ ERRORS
-    # ========================================================
-    if read_errors:
+with col3:
 
-        with st.expander(
-            "⚠️ Sheet yang tidak berjaya dibaca"
-        ):
-
-            error_df = pd.DataFrame(
-                read_errors
-            )
-
-            st.dataframe(
-                error_df,
-                use_container_width=True,
-                hide_index=True
-            )
-    # ========================================================
-    # BASIC METRICS
-    # ========================================================
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-
-        st.metric(
-            f"Mean {target_year}",
-            (
-                f"{target_mean:.2f} °C"
-                if pd.notna(target_mean)
-                else "N.A."
-            )
+    st.metric(
+        f"Maximum {target_year}",
+        (
+            f"{target_max:.2f} °C"
+            if pd.notna(target_max)
+            else "N.A."
         )
-
-    with col2:
-
-        st.metric(
-            f"Minimum {target_year}",
-            (
-                f"{target_min:.2f} °C"
-                if pd.notna(target_min)
-                else "N.A."
-            )
-        )
-
-    with col3:
-
-        st.metric(
-            f"Maximum {target_year}",
-            (
-                f"{target_max:.2f} °C"
-                if pd.notna(target_max)
-                else "N.A."
-            )
-        )
-
-    with col4:
-
-        st.metric(
-            "Standard Deviation",
-            (
-                f"{target_std:.2f} °C"
-                if pd.notna(target_std)
-                else "N.A."
-            )
-        )
-
-    st.caption(
-        f"Valid Daily Temperature Records: "
-        f"{len(target_long):,}"
     )
+
+with col4:
+
+    st.metric(
+        "Standard Deviation",
+        (
+            f"{target_std:.2f} °C"
+            if pd.notna(target_std)
+            else "N.A."
+        )
+    )
+
+st.caption(
+    f"Valid Daily Temperature Records: "
+    f"{len(target_long):,}"
+)
 
 
 # ============================================================
