@@ -2743,3 +2743,1427 @@ with main_tabs[1]:
             use_container_width=True,
             hide_index=True
         )
+# ============================================================
+# MAIN TAB 3 — PERBANDINGAN DATA STESEN
+# ============================================================
+
+with main_tabs[2]:
+
+    st.header("🏢 Perbandingan Data Suhu Antara Stesen")
+
+    # --------------------------------------------------------
+    # SEMAK BILANGAN STESEN
+    # --------------------------------------------------------
+
+    if len(station_names) < 2:
+
+        st.warning(
+            "Sila upload sekurang-kurangnya dua fail "
+            "untuk membuat perbandingan antara stesen."
+        )
+
+    else:
+
+        # ----------------------------------------------------
+        # PILIH DUA STESEN
+        # ----------------------------------------------------
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            station_a = st.selectbox(
+                "🏢 Stesen A",
+                station_names,
+                index=0,
+                key="comparison_station_a"
+            )
+
+        with col2:
+
+            station_b_options = [
+                s for s in station_names
+                if s != station_a
+            ]
+
+            station_b = st.selectbox(
+                "🏢 Stesen B",
+                station_b_options,
+                index=0,
+                key="comparison_station_b"
+            )
+
+        # ----------------------------------------------------
+        # AMBIL DATA
+        # ----------------------------------------------------
+
+        data_a = results[station_a]["all_daily"].copy()
+        data_b = results[station_b]["all_daily"].copy()
+
+        # ----------------------------------------------------
+        # FILTER TEMPOH ANALISIS
+        # ----------------------------------------------------
+
+        data_a = data_a[
+            data_a["Year"].between(
+                int(START_YEAR),
+                int(END_YEAR)
+            )
+        ].copy()
+
+        data_b = data_b[
+            data_b["Year"].between(
+                int(START_YEAR),
+                int(END_YEAR)
+            )
+        ].copy()
+
+        # ----------------------------------------------------
+        # FUNCTION CONVERT WIDE → LONG
+        # ----------------------------------------------------
+
+        def prepare_temperature_long(df, station_name):
+
+            long_df = df.melt(
+                id_vars=["Year", "hari"],
+                value_vars=months,
+                var_name="Month",
+                value_name="Temperature"
+            )
+
+            month_number = {
+                month: i + 1
+                for i, month in enumerate(months)
+            }
+
+            long_df["Month_Number"] = (
+                long_df["Month"].map(month_number)
+            )
+
+            # Bilangan hari sebenar dalam bulan
+            long_df["Days_In_Month"] = long_df.apply(
+                lambda row: calendar.monthrange(
+                    int(row["Year"]),
+                    int(row["Month_Number"])
+                )[1],
+                axis=1
+            )
+
+            # Buang hari yang tidak sah
+            long_df = long_df[
+                long_df["hari"] <=
+                long_df["Days_In_Month"]
+            ].copy()
+
+            # Buang data kosong
+            long_df = long_df.dropna(
+                subset=["Temperature"]
+            )
+
+            long_df["Station"] = station_name
+
+            return long_df
+
+        # ----------------------------------------------------
+        # PREPARE DATA
+        # ----------------------------------------------------
+
+        long_a = prepare_temperature_long(
+            data_a,
+            station_a
+        )
+
+        long_b = prepare_temperature_long(
+            data_b,
+            station_b
+        )
+
+        if long_a.empty or long_b.empty:
+
+            st.warning(
+                "Data suhu tidak mencukupi untuk membuat "
+                "perbandingan antara kedua-dua stesen."
+            )
+
+        else:
+
+            # =================================================
+            # PENGIRAAN STESEN A
+            # =================================================
+
+            mean_a = (
+                long_a
+                .groupby("Month")["Temperature"]
+                .mean()
+                .reindex(months)
+            )
+
+            max_a = (
+                long_a
+                .groupby("Month")["Temperature"]
+                .max()
+                .reindex(months)
+            )
+
+            min_a = (
+                long_a
+                .groupby("Month")["Temperature"]
+                .min()
+                .reindex(months)
+            )
+
+            # =================================================
+            # PENGIRAAN STESEN B
+            # =================================================
+
+            mean_b = (
+                long_b
+                .groupby("Month")["Temperature"]
+                .mean()
+                .reindex(months)
+            )
+
+            max_b = (
+                long_b
+                .groupby("Month")["Temperature"]
+                .max()
+                .reindex(months)
+            )
+
+            min_b = (
+                long_b
+                .groupby("Month")["Temperature"]
+                .min()
+                .reindex(months)
+            )
+
+            # =================================================
+            # PURATA TAHUNAN
+            # =================================================
+
+            annual_a = (
+                long_a
+                .groupby("Year")["Temperature"]
+                .mean()
+                .sort_index()
+            )
+
+            annual_b = (
+                long_b
+                .groupby("Year")["Temperature"]
+                .mean()
+                .sort_index()
+            )
+
+            # =================================================
+            # SUB TABS
+            # =================================================
+
+            comparison_tabs = st.tabs([
+                "📊 Purata Bulanan",
+                "🔥 Maximum & Minimum",
+                "📉 Perbezaan Suhu",
+                "📈 Trend Tahunan",
+                "📋 Error Analysis"
+            ])
+
+            # =================================================
+            # TAB 1 — PURATA BULANAN
+            # =================================================
+
+            with comparison_tabs[0]:
+
+                st.subheader(
+                    f"📊 Perbandingan Purata Suhu Bulanan "
+                    f"({START_YEAR}–{END_YEAR})"
+                )
+
+                fig, ax = plt.subplots(
+                    figsize=(FIG_WIDTH, FIG_HEIGHT)
+                )
+
+                x = np.arange(len(months))
+                width = 0.35
+
+                bars_a = ax.bar(
+                    x - width / 2,
+                    mean_a.values,
+                    width,
+                    label=station_a
+                )
+
+                bars_b = ax.bar(
+                    x + width / 2,
+                    mean_b.values,
+                    width,
+                    label=station_b
+                )
+
+                ax.set_title(
+                    f"Purata Suhu Bulanan: "
+                    f"{station_a} vs {station_b}",
+                    fontsize=16,
+                    fontweight="bold"
+                )
+
+                ax.set_xlabel("Bulan")
+                ax.set_ylabel("Purata Suhu (°C)")
+
+                ax.set_xticks(x)
+                ax.set_xticklabels(months)
+
+                ax.legend()
+
+                ax.grid(
+                    axis="y",
+                    linestyle="--",
+                    alpha=0.3
+                )
+
+                plt.tight_layout()
+
+                st.pyplot(fig)
+
+                # ------------------------------------------------
+                # TABLE
+                # ------------------------------------------------
+
+                table_mean = pd.DataFrame({
+                    "Bulan": months,
+                    f"{station_a} (°C)": mean_a.values,
+                    f"{station_b} (°C)": mean_b.values,
+                    "Perbezaan A-B (°C)": (
+                        mean_a.values -
+                        mean_b.values
+                    )
+                })
+
+                st.dataframe(
+                    table_mean,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+            # =================================================
+            # TAB 2 — MAXIMUM & MINIMUM
+            # =================================================
+
+            with comparison_tabs[1]:
+
+                st.subheader(
+                    "🔥 Perbandingan Suhu Maximum dan Minimum"
+                )
+
+                fig, ax = plt.subplots(
+                    figsize=(FIG_WIDTH, FIG_HEIGHT)
+                )
+
+                # Station A
+                ax.plot(
+                    months,
+                    max_a.values,
+                    marker="o",
+                    linewidth=2,
+                    label=f"{station_a} Maximum"
+                )
+
+                ax.plot(
+                    months,
+                    min_a.values,
+                    marker="o",
+                    linestyle="--",
+                    linewidth=2,
+                    label=f"{station_a} Minimum"
+                )
+
+                # Station B
+                ax.plot(
+                    months,
+                    max_b.values,
+                    marker="s",
+                    linewidth=2,
+                    label=f"{station_b} Maximum"
+                )
+
+                ax.plot(
+                    months,
+                    min_b.values,
+                    marker="s",
+                    linestyle="--",
+                    linewidth=2,
+                    label=f"{station_b} Minimum"
+                )
+
+                ax.set_title(
+                    f"Maximum dan Minimum Suhu Bulanan\n"
+                    f"{station_a} vs {station_b}",
+                    fontsize=16,
+                    fontweight="bold"
+                )
+
+                ax.set_xlabel("Bulan")
+                ax.set_ylabel("Suhu (°C)")
+
+                ax.legend()
+
+                ax.grid(
+                    linestyle="--",
+                    alpha=0.3
+                )
+
+                plt.tight_layout()
+
+                st.pyplot(fig)
+
+                # ------------------------------------------------
+                # TABLE
+                # ------------------------------------------------
+
+                max_min_table = pd.DataFrame({
+                    "Bulan": months,
+
+                    f"{station_a} Max (°C)":
+                        max_a.values,
+
+                    f"{station_a} Min (°C)":
+                        min_a.values,
+
+                    f"{station_b} Max (°C)":
+                        max_b.values,
+
+                    f"{station_b} Min (°C)":
+                        min_b.values
+                })
+
+                st.dataframe(
+                    max_min_table,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+            # =================================================
+            # TAB 3 — PERBEZAAN SUHU
+            # =================================================
+
+            with comparison_tabs[2]:
+
+                st.subheader(
+                    "📉 Perbezaan Purata Suhu Antara Stesen"
+                )
+
+                # A - B
+                monthly_difference = (
+                    mean_a - mean_b
+                )
+
+                fig, ax = plt.subplots(
+                    figsize=(FIG_WIDTH, FIG_HEIGHT)
+                )
+
+                bars = ax.bar(
+                    months,
+                    monthly_difference.values
+                )
+
+                ax.axhline(
+                    0,
+                    linewidth=1
+                )
+
+                ax.set_title(
+                    f"Perbezaan Purata Suhu "
+                    f"({station_a} − {station_b})",
+                    fontsize=16,
+                    fontweight="bold"
+                )
+
+                ax.set_xlabel("Bulan")
+                ax.set_ylabel(
+                    "Perbezaan Suhu (°C)"
+                )
+
+                ax.grid(
+                    axis="y",
+                    linestyle="--",
+                    alpha=0.3
+                )
+
+                # Nilai perbezaan
+                for bar, value in zip(
+                    bars,
+                    monthly_difference.values
+                ):
+
+                    if pd.notna(value):
+
+                        offset = (
+                            0.02
+                            if value >= 0
+                            else -0.02
+                        )
+
+                        ax.text(
+                            bar.get_x() +
+                            bar.get_width() / 2,
+                            value + offset,
+                            f"{value:.2f}",
+                            ha="center",
+                            va="bottom" if value >= 0 else "top"
+                        )
+
+                plt.tight_layout()
+
+                st.pyplot(fig)
+
+                # ------------------------------------------------
+                # METRICS
+                # ------------------------------------------------
+
+                valid_difference = (
+                    monthly_difference
+                    .dropna()
+                )
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+
+                    st.metric(
+                        "Purata Perbezaan",
+                        f"{valid_difference.mean():.2f} °C"
+                    )
+
+                with col2:
+
+                    st.metric(
+                        "Perbezaan Maksimum",
+                        f"{valid_difference.max():.2f} °C"
+                    )
+
+                with col3:
+
+                    st.metric(
+                        "Perbezaan Minimum",
+                        f"{valid_difference.min():.2f} °C"
+                    )
+
+                # ------------------------------------------------
+                # TABLE
+                # ------------------------------------------------
+
+                difference_table = pd.DataFrame({
+                    "Bulan": months,
+                    f"{station_a} (°C)": mean_a.values,
+                    f"{station_b} (°C)": mean_b.values,
+                    "Perbezaan A-B (°C)":
+                        monthly_difference.values
+                })
+
+                st.dataframe(
+                    difference_table,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+            # =================================================
+            # TAB 4 — TREND TAHUNAN
+            # =================================================
+
+            with comparison_tabs[3]:
+
+                st.subheader(
+                    f"📈 Trend Purata Suhu Tahunan "
+                    f"({START_YEAR}–{END_YEAR})"
+                )
+
+                # Tahun yang sama sahaja
+                common_years = sorted(
+                    set(annual_a.index)
+                    .intersection(
+                        set(annual_b.index)
+                    )
+                )
+
+                annual_a_common = annual_a.reindex(
+                    common_years
+                )
+
+                annual_b_common = annual_b.reindex(
+                    common_years
+                )
+
+                fig, ax = plt.subplots(
+                    figsize=(FIG_WIDTH, FIG_HEIGHT)
+                )
+
+                ax.plot(
+                    common_years,
+                    annual_a_common.values,
+                    marker="o",
+                    linewidth=2,
+                    label=station_a
+                )
+
+                ax.plot(
+                    common_years,
+                    annual_b_common.values,
+                    marker="o",
+                    linewidth=2,
+                    label=station_b
+                )
+
+                ax.set_title(
+                    f"Trend Purata Suhu Tahunan\n"
+                    f"{station_a} vs {station_b}",
+                    fontsize=16,
+                    fontweight="bold"
+                )
+
+                ax.set_xlabel("Tahun")
+                ax.set_ylabel(
+                    "Purata Suhu (°C)"
+                )
+
+                ax.legend()
+
+                ax.grid(
+                    linestyle="--",
+                    alpha=0.3
+                )
+
+                plt.tight_layout()
+
+                st.pyplot(fig)
+
+                # ------------------------------------------------
+                # TABLE
+                # ------------------------------------------------
+
+                annual_comparison = pd.DataFrame({
+                    "Tahun": common_years,
+
+                    f"{station_a} (°C)":
+                        annual_a_common.values,
+
+                    f"{station_b} (°C)":
+                        annual_b_common.values,
+
+                    "Perbezaan A-B (°C)":
+                        (
+                            annual_a_common.values -
+                            annual_b_common.values
+                        )
+                })
+
+                st.dataframe(
+                    annual_comparison,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+            # =================================================
+            # TAB 5 — ERROR ANALYSIS
+            # =================================================
+
+            with comparison_tabs[4]:
+
+                st.subheader(
+                    "📋 Error Analysis Antara Stesen"
+                )
+
+                # ------------------------------------------------
+                # DATA HARIAN YANG SAMA
+                # ------------------------------------------------
+
+                daily_a = long_a[
+                    ["Year", "hari", "Month", "Temperature"]
+                ].copy()
+
+                daily_b = long_b[
+                    ["Year", "hari", "Month", "Temperature"]
+                ].copy()
+
+                daily_a = daily_a.rename(
+                    columns={
+                        "Temperature": "Temperature_A"
+                    }
+                )
+
+                daily_b = daily_b.rename(
+                    columns={
+                        "Temperature": "Temperature_B"
+                    }
+                )
+
+                merged_daily = pd.merge(
+                    daily_a,
+                    daily_b,
+                    on=["Year", "hari", "Month"],
+                    how="inner"
+                )
+
+                merged_daily = merged_daily.dropna(
+                    subset=[
+                        "Temperature_A",
+                        "Temperature_B"
+                    ]
+                )
+
+                if merged_daily.empty:
+
+                    st.warning(
+                        "Tiada tarikh yang sepadan antara "
+                        "kedua-dua stesen."
+                    )
+
+                else:
+
+                    # ------------------------------------------------
+                    # ERROR
+                    # ------------------------------------------------
+
+                    merged_daily["Difference"] = (
+                        merged_daily["Temperature_A"] -
+                        merged_daily["Temperature_B"]
+                    )
+
+                    merged_daily["Absolute_Error"] = (
+                        merged_daily["Difference"]
+                        .abs()
+                    )
+
+                    bias = (
+                        merged_daily["Difference"].mean()
+                    )
+
+                    mae = (
+                        merged_daily["Absolute_Error"].mean()
+                    )
+
+                    mean_abs_difference = (
+                        merged_daily["Absolute_Error"].mean()
+                    )
+
+                    # ------------------------------------------------
+                    # METRICS
+                    # ------------------------------------------------
+
+                    col1, col2, col3, col4 = st.columns(4)
+
+                    with col1:
+
+                        st.metric(
+                            "Bias / Mean Difference",
+                            f"{bias:.3f} °C"
+                        )
+
+                    with col2:
+
+                        st.metric(
+                            "MAE",
+                            f"{mae:.3f} °C"
+                        )
+
+                    with col3:
+
+                        st.metric(
+                            "Absolute Difference",
+                            f"{mean_abs_difference:.3f} °C"
+                        )
+
+                    with col4:
+
+                        st.metric(
+                            "Bilangan Data",
+                            f"{len(merged_daily):,}"
+                        )
+
+                    # ------------------------------------------------
+                    # ERROR DISTRIBUTION
+                    # ------------------------------------------------
+
+                    fig, ax = plt.subplots(
+                        figsize=(FIG_WIDTH, FIG_HEIGHT)
+                    )
+
+                    ax.hist(
+                        merged_daily["Difference"],
+                        bins=20,
+                        edgecolor="black"
+                    )
+
+                    ax.axvline(
+                        0,
+                        linestyle="--",
+                        linewidth=2
+                    )
+
+                    ax.set_title(
+                        f"Taburan Perbezaan Suhu\n"
+                        f"{station_a} − {station_b}",
+                        fontsize=16,
+                        fontweight="bold"
+                    )
+
+                    ax.set_xlabel(
+                        "Perbezaan Suhu (°C)"
+                    )
+
+                    ax.set_ylabel(
+                        "Bilangan Data"
+                    )
+
+                    ax.grid(
+                        axis="y",
+                        linestyle="--",
+                        alpha=0.3
+                    )
+
+                    plt.tight_layout()
+
+                    st.pyplot(fig)
+
+                    # ------------------------------------------------
+                    # TABLE ERROR
+                    # ------------------------------------------------
+
+                    error_table = merged_daily[
+                        [
+                            "Year",
+                            "hari",
+                            "Month",
+                            "Temperature_A",
+                            "Temperature_B",
+                            "Difference",
+                            "Absolute_Error"
+                        ]
+                    ].copy()
+
+                    error_table = error_table.rename(
+                        columns={
+                            "Temperature_A":
+                                station_a,
+                            "Temperature_B":
+                                station_b
+                        }
+                    )
+
+                    st.dataframe(
+                        error_table,
+                        use_container_width=True,
+                        hide_index=True
+                    )
+# ============================================================
+# MAIN TAB 4 — SUHU TERTINGGI / EKSTREM
+# ============================================================
+
+with main_tabs[3]:
+
+    st.header("🔥 Analisis Suhu Ekstrem")
+
+    # --------------------------------------------------------
+    # PILIH STESEN
+    # --------------------------------------------------------
+
+    selected_station_extreme = st.selectbox(
+        "🏢 Pilih Stesen",
+        station_names,
+        key="extreme_station"
+    )
+
+    # --------------------------------------------------------
+    # AMBIL DATA
+    # --------------------------------------------------------
+
+    result = results[selected_station_extreme]
+
+    all_daily = result["all_daily"].copy()
+
+    # --------------------------------------------------------
+    # FILTER TEMPOH ANALISIS
+    # --------------------------------------------------------
+
+    period_data = all_daily[
+        all_daily["Year"].between(
+            int(START_YEAR),
+            int(END_YEAR)
+        )
+    ].copy()
+
+    if period_data.empty:
+
+        st.warning(
+            f"Tiada data suhu bagi tempoh "
+            f"{START_YEAR} hingga {END_YEAR}."
+        )
+
+        st.stop()
+
+    # ========================================================
+    # CONVERT WIDE → LONG
+    # ========================================================
+
+    extreme_long = period_data.melt(
+        id_vars=["Year", "hari"],
+        value_vars=months,
+        var_name="Month",
+        value_name="Temperature"
+    )
+
+    # --------------------------------------------------------
+    # NOMBOR BULAN
+    # --------------------------------------------------------
+
+    month_number = {
+        month: i + 1
+        for i, month in enumerate(months)
+    }
+
+    extreme_long["Month_Number"] = (
+        extreme_long["Month"].map(month_number)
+    )
+
+    # --------------------------------------------------------
+    # BILANGAN HARI SEBENAR DALAM BULAN
+    # --------------------------------------------------------
+
+    extreme_long["Days_In_Month"] = extreme_long.apply(
+        lambda row: calendar.monthrange(
+            int(row["Year"]),
+            int(row["Month_Number"])
+        )[1],
+        axis=1
+    )
+
+    # --------------------------------------------------------
+    # BUANG HARI TIDAK SAH
+    # --------------------------------------------------------
+
+    extreme_long = extreme_long[
+        extreme_long["hari"] <=
+        extreme_long["Days_In_Month"]
+    ].copy()
+
+    # --------------------------------------------------------
+    # BUANG DATA KOSONG
+    # --------------------------------------------------------
+
+    extreme_long = extreme_long.dropna(
+        subset=["Temperature"]
+    ).copy()
+
+    if extreme_long.empty:
+
+        st.warning(
+            "Tiada data suhu yang sah untuk dianalisis."
+        )
+
+        st.stop()
+
+    # ========================================================
+    # BINA TARIKH
+    # ========================================================
+
+    extreme_long["Date"] = pd.to_datetime(
+        dict(
+            year=extreme_long["Year"].astype(int),
+            month=extreme_long["Month_Number"].astype(int),
+            day=extreme_long["hari"].astype(int)
+        ),
+        errors="coerce"
+    )
+
+    extreme_long = extreme_long.dropna(
+        subset=["Date"]
+    ).copy()
+
+    # ========================================================
+    # PENGIRAAN SUHU EKSTREM
+    # ========================================================
+
+    highest_row = extreme_long.loc[
+        extreme_long["Temperature"].idxmax()
+    ]
+
+    lowest_row = extreme_long.loc[
+        extreme_long["Temperature"].idxmin()
+    ]
+
+    highest_temperature = highest_row["Temperature"]
+    lowest_temperature = lowest_row["Temperature"]
+
+    # ========================================================
+    # SUB TABS
+    # ========================================================
+
+    extreme_tabs = st.tabs([
+        "🌡️ Rekod Ekstrem",
+        "🏆 Top 10 Tertinggi",
+        "❄️ Top 10 Terendah",
+        "📅 Maximum Mengikut Tahun",
+        "📈 Trend Maximum"
+    ])
+
+    # ========================================================
+    # TAB 1 — REKOD EKSTREM
+    # ========================================================
+
+    with extreme_tabs[0]:
+
+        st.subheader(
+            f"🌡️ Rekod Suhu Ekstrem "
+            f"({START_YEAR}–{END_YEAR})"
+        )
+
+        col1, col2 = st.columns(2)
+
+        # ----------------------------------------------------
+        # SUHU TERTINGGI
+        # ----------------------------------------------------
+
+        with col1:
+
+            st.metric(
+                "🔥 Suhu Tertinggi",
+                f"{highest_temperature:.1f} °C"
+            )
+
+            st.write(
+                f"**Tarikh:** "
+                f"{highest_row['Date'].strftime('%d/%m/%Y')}"
+            )
+
+            st.write(
+                f"**Tahun:** "
+                f"{int(highest_row['Year'])}"
+            )
+
+            st.write(
+                f"**Bulan:** "
+                f"{highest_row['Month']}"
+            )
+
+        # ----------------------------------------------------
+        # SUHU TERENDAH
+        # ----------------------------------------------------
+
+        with col2:
+
+            st.metric(
+                "❄️ Suhu Terendah",
+                f"{lowest_temperature:.1f} °C"
+            )
+
+            st.write(
+                f"**Tarikh:** "
+                f"{lowest_row['Date'].strftime('%d/%m/%Y')}"
+            )
+
+            st.write(
+                f"**Tahun:** "
+                f"{int(lowest_row['Year'])}"
+            )
+
+            st.write(
+                f"**Bulan:** "
+                f"{lowest_row['Month']}"
+            )
+
+        st.markdown("---")
+
+        # ----------------------------------------------------
+        # RANGE SUHU
+        # ----------------------------------------------------
+
+        temperature_range = (
+            highest_temperature -
+            lowest_temperature
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.metric(
+                "Maximum",
+                f"{highest_temperature:.2f} °C"
+            )
+
+        with col2:
+
+            st.metric(
+                "Minimum",
+                f"{lowest_temperature:.2f} °C"
+            )
+
+        with col3:
+
+            st.metric(
+                "Julat Suhu",
+                f"{temperature_range:.2f} °C"
+            )
+
+    # ========================================================
+    # TAB 2 — TOP 10 SUHU TERTINGGI
+    # ========================================================
+
+    with extreme_tabs[1]:
+
+        st.subheader(
+            f"🏆 Top 10 Suhu Tertinggi "
+            f"({START_YEAR}–{END_YEAR})"
+        )
+
+        top10_high = (
+            extreme_long
+            .nlargest(10, "Temperature")
+            .copy()
+        )
+
+        top10_high["Tarikh"] = (
+            top10_high["Date"]
+            .dt.strftime("%d/%m/%Y")
+        )
+
+        top10_high = top10_high[
+            [
+                "Tarikh",
+                "Year",
+                "Month",
+                "Temperature"
+            ]
+        ].copy()
+
+        top10_high.columns = [
+            "Tarikh",
+            "Tahun",
+            "Bulan",
+            "Suhu (°C)"
+        ]
+
+        top10_high = top10_high.reset_index(
+            drop=True
+        )
+
+        top10_high.index = (
+            top10_high.index + 1
+        )
+
+        st.dataframe(
+            top10_high,
+            use_container_width=True
+        )
+
+        # ----------------------------------------------------
+        # GRAPH
+        # ----------------------------------------------------
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        ax.bar(
+            top10_high["Tarikh"],
+            top10_high["Suhu (°C)"]
+        )
+
+        ax.set_title(
+            "Top 10 Suhu Tertinggi",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel("Tarikh")
+        ax.set_ylabel("Suhu (°C)")
+
+        plt.xticks(
+            rotation=45,
+            ha="right"
+        )
+
+        ax.grid(
+            axis="y",
+            linestyle="--",
+            alpha=0.3
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(fig)
+
+    # ========================================================
+    # TAB 3 — TOP 10 SUHU TERENDAH
+    # ========================================================
+
+    with extreme_tabs[2]:
+
+        st.subheader(
+            f"❄️ Top 10 Suhu Terendah "
+            f"({START_YEAR}–{END_YEAR})"
+        )
+
+        top10_low = (
+            extreme_long
+            .nsmallest(10, "Temperature")
+            .copy()
+        )
+
+        top10_low["Tarikh"] = (
+            top10_low["Date"]
+            .dt.strftime("%d/%m/%Y")
+        )
+
+        top10_low = top10_low[
+            [
+                "Tarikh",
+                "Year",
+                "Month",
+                "Temperature"
+            ]
+        ].copy()
+
+        top10_low.columns = [
+            "Tarikh",
+            "Tahun",
+            "Bulan",
+            "Suhu (°C)"
+        ]
+
+        top10_low = top10_low.reset_index(
+            drop=True
+        )
+
+        top10_low.index = (
+            top10_low.index + 1
+        )
+
+        st.dataframe(
+            top10_low,
+            use_container_width=True
+        )
+
+        # ----------------------------------------------------
+        # GRAPH
+        # ----------------------------------------------------
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        ax.bar(
+            top10_low["Tarikh"],
+            top10_low["Suhu (°C)"]
+        )
+
+        ax.set_title(
+            "Top 10 Suhu Terendah",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel("Tarikh")
+        ax.set_ylabel("Suhu (°C)")
+
+        plt.xticks(
+            rotation=45,
+            ha="right"
+        )
+
+        ax.grid(
+            axis="y",
+            linestyle="--",
+            alpha=0.3
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(fig)
+
+    # ========================================================
+    # TAB 4 — MAXIMUM MENGIKUT TAHUN
+    # ========================================================
+
+    with extreme_tabs[3]:
+
+        st.subheader(
+            f"📅 Suhu Maximum Mengikut Tahun "
+            f"({START_YEAR}–{END_YEAR})"
+        )
+
+        annual_max = (
+            extreme_long
+            .groupby("Year")["Temperature"]
+            .max()
+            .sort_index()
+        )
+
+        # ----------------------------------------------------
+        # GRAPH
+        # ----------------------------------------------------
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        bars = ax.bar(
+            annual_max.index.astype(str),
+            annual_max.values
+        )
+
+        ax.set_title(
+            "Suhu Maximum Mengikut Tahun",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel("Tahun")
+        ax.set_ylabel("Suhu Maximum (°C)")
+
+        ax.grid(
+            axis="y",
+            linestyle="--",
+            alpha=0.3
+        )
+
+        for bar, value in zip(
+            bars,
+            annual_max.values
+        ):
+
+            ax.text(
+                bar.get_x() +
+                bar.get_width() / 2,
+                value,
+                f"{value:.1f}",
+                ha="center",
+                va="bottom"
+            )
+
+        plt.xticks(
+            rotation=45
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(fig)
+
+        # ----------------------------------------------------
+        # TABLE
+        # ----------------------------------------------------
+
+        annual_max_table = pd.DataFrame({
+            "Tahun": annual_max.index,
+            "Suhu Maximum (°C)": annual_max.values
+        })
+
+        st.dataframe(
+            annual_max_table,
+            use_container_width=True,
+            hide_index=True
+        )
+
+    # ========================================================
+    # TAB 5 — TREND SUHU MAXIMUM
+    # ========================================================
+
+    with extreme_tabs[4]:
+
+        st.subheader(
+            f"📈 Trend Suhu Maximum Tahunan "
+            f"({START_YEAR}–{END_YEAR})"
+        )
+
+        annual_max = (
+            extreme_long
+            .groupby("Year")["Temperature"]
+            .max()
+            .sort_index()
+        )
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        ax.plot(
+            annual_max.index,
+            annual_max.values,
+            marker="o",
+            linewidth=2,
+            label="Suhu Maximum"
+        )
+
+        # ----------------------------------------------------
+        # TREND LINE
+        # ----------------------------------------------------
+
+        valid = annual_max.dropna()
+
+        if len(valid) >= 2:
+
+            x = valid.index.values
+            y = valid.values
+
+            coefficients = np.polyfit(
+                x,
+                y,
+                1
+            )
+
+            trend = np.poly1d(
+                coefficients
+            )
+
+            ax.plot(
+                x,
+                trend(x),
+                linestyle="--",
+                linewidth=2,
+                label="Trend Linear"
+            )
+
+        ax.set_title(
+            "Trend Suhu Maximum Tahunan",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel("Tahun")
+        ax.set_ylabel("Suhu Maximum (°C)")
+
+        ax.legend()
+
+        ax.grid(
+            linestyle="--",
+            alpha=0.3
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(fig)
+
+        # ----------------------------------------------------
+        # TAHUN MAXIMUM TERTINGGI
+        # ----------------------------------------------------
+
+        max_year = annual_max.idxmax()
+        max_year_value = annual_max.max()
+
+        min_year = annual_max.idxmin()
+        min_year_value = annual_max.min()
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.metric(
+                "Tahun Suhu Maximum Tertinggi",
+                str(int(max_year)),
+                f"{max_year_value:.2f} °C"
+            )
+
+        with col2:
+
+            st.metric(
+                "Tahun Suhu Maximum Terendah",
+                str(int(min_year)),
+                f"{min_year_value:.2f} °C"
+            )
