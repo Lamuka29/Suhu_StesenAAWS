@@ -895,7 +895,6 @@ main_tabs = st.tabs([
     "🏢 Perbandingan Data Stesen",
     "🔥 Suhu Tertinggi"
 ])
-
 # ============================================================
 # MAIN TAB 1 — TARGET YEAR
 # ============================================================
@@ -912,745 +911,981 @@ with main_tabs[0]:
         "📈 Daily Temperature"
     ])
 
+    # ========================================================
+    # SELECTED STATION DATA
+    # ========================================================
+    file_name = selected_result["file_name"]
+
+    original_file_name = (
+        selected_result["original_file_name"]
+    )
+
+    all_daily = (
+        selected_result["all_daily"]
+        .copy()
+    )
+
+    read_errors = (
+        selected_result["read_errors"]
+    )
 
     # ========================================================
-    # DISPLAY EACH FILE
+    # TARGET YEAR DATA
     # ========================================================
-    for result in display_results:
+    target_data = all_daily[
+        all_daily["Year"] == target_year
+    ].copy()
 
-        file_name = result["file_name"]
-        original_file_name = result["original_file_name"]
-        all_daily = result["all_daily"]
+    if target_data.empty:
 
-        target_data = all_daily[
-            all_daily["Year"] == target_year
-        ].copy()
-
-        read_errors = result["read_errors"]
-
-        # ====================================================
-        # CONVERT TARGET YEAR TO LONG FORMAT
-        # ====================================================
-        target_long = target_data.melt(
-            id_vars=["Year", "hari"],
-            value_vars=months,
-            var_name="Month",
-            value_name="Temperature"
+        st.warning(
+            f"⚠️ Tiada data suhu bagi tahun "
+            f"{target_year} untuk stesen "
+            f"{file_name}."
         )
 
-        month_number = {
-            month: i + 1
-            for i, month in enumerate(months)
-        }
+        st.stop()
 
-        target_long["Month_Number"] = (
-            target_long["Month"]
-            .map(month_number)
-        )
+    # ========================================================
+    # CONVERT TARGET YEAR TO LONG FORMAT
+    # ========================================================
+    target_long = target_data.melt(
+        id_vars=[
+            "Year",
+            "hari"
+        ],
 
-        # ----------------------------------------------------
-        # REMOVE INVALID DAYS
-        # ----------------------------------------------------
-        target_long["Days_In_Month"] = target_long.apply(
-            lambda row: calendar.monthrange(
-                int(row["Year"]),
-                int(row["Month_Number"])
-            )[1],
+        value_vars=months,
+
+        var_name="Month",
+
+        value_name="Temperature"
+    )
+
+    # ========================================================
+    # MONTH NUMBER
+    # ========================================================
+    month_number = {
+        month: i + 1
+        for i, month in enumerate(months)
+    }
+
+    target_long["Month_Number"] = (
+        target_long["Month"]
+        .map(month_number)
+    )
+
+    # ========================================================
+    # DAYS IN MONTH
+    # ========================================================
+    target_long["Days_In_Month"] = (
+        target_long.apply(
+            lambda row:
+                calendar.monthrange(
+                    int(row["Year"]),
+                    int(row["Month_Number"])
+                )[1],
             axis=1
         )
+    )
 
-        target_long = target_long[
-            target_long["hari"]
-            <= target_long["Days_In_Month"]
-        ].copy()
+    # ========================================================
+    # REMOVE INVALID DAYS
+    # ========================================================
+    target_long = target_long[
+        target_long["hari"]
+        <= target_long["Days_In_Month"]
+    ].copy()
 
-        target_long = target_long.dropna(
-            subset=["Temperature"]
-        )
+    # ========================================================
+    # REMOVE MISSING TEMPERATURE
+    # ========================================================
+    target_long = target_long.dropna(
+        subset=["Temperature"]
+    ).copy()
 
-        # ====================================================
-        # MONTHLY STATISTICS
-        # ====================================================
-        target_monthly_mean = (
-            target_data[months]
+    # ========================================================
+    # MONTHLY MEAN
+    # ========================================================
+    target_monthly_mean = (
+        target_long
+        .groupby("Month")["Temperature"]
+        .mean()
+        .reindex(months)
+    )
+
+    # ========================================================
+    # MONTHLY MAXIMUM
+    # ========================================================
+    target_monthly_max = (
+        target_long
+        .groupby("Month")["Temperature"]
+        .max()
+        .reindex(months)
+    )
+
+    # ========================================================
+    # MONTHLY MINIMUM
+    # ========================================================
+    target_monthly_min = (
+        target_long
+        .groupby("Month")["Temperature"]
+        .min()
+        .reindex(months)
+    )
+
+    # ========================================================
+    # BASIC STATISTICS
+    # ========================================================
+    if not target_long.empty:
+
+        target_mean = (
+            target_long["Temperature"]
             .mean()
         )
 
-        target_monthly_max = (
-            target_data[months]
+        target_median = (
+            target_long["Temperature"]
+            .median()
+        )
+
+        target_max = (
+            target_long["Temperature"]
             .max()
         )
 
-        target_monthly_min = (
-            target_data[months]
+        target_min = (
+            target_long["Temperature"]
             .min()
         )
 
-        # ====================================================
-        # BASIC TARGET YEAR STATISTICS
-        # ====================================================
-        if not target_long.empty:
+        target_std = (
+            target_long["Temperature"]
+            .std()
+        )
 
-            target_mean = (
-                target_long["Temperature"]
-                .mean()
+    else:
+
+        target_mean = np.nan
+        target_median = np.nan
+        target_max = np.nan
+        target_min = np.nan
+        target_std = np.nan
+
+    # ========================================================
+    # FILE HEADER
+    # ========================================================
+    st.divider()
+
+    st.header(
+        f"📁 {original_file_name}"
+    )
+
+    st.caption(
+        f"📍 Station: {file_name} | "
+        f"📅 Target Year: {target_year}"
+    )
+
+    # ========================================================
+    # READ ERRORS
+    # ========================================================
+    if read_errors:
+
+        with st.expander(
+            "⚠️ Sheet yang tidak berjaya dibaca"
+        ):
+
+            error_df = pd.DataFrame(
+                read_errors
             )
 
-            target_median = (
-                target_long["Temperature"]
-                .median()
+            st.dataframe(
+                error_df,
+                use_container_width=True,
+                hide_index=True
             )
 
-            target_max = (
-                target_long["Temperature"]
-                .max()
-            )
+    # ========================================================
+    # BASIC METRICS
+    # ========================================================
+    col1, col2, col3, col4 = st.columns(4)
 
-            target_min = (
-                target_long["Temperature"]
-                .min()
-            )
+    with col1:
 
-            target_std = (
-                target_long["Temperature"]
-                .std()
+        st.metric(
+            f"Mean {target_year}",
+            (
+                f"{target_mean:.2f} °C"
+                if pd.notna(target_mean)
+                else "N.A."
             )
+        )
+
+    with col2:
+
+        st.metric(
+            f"Minimum {target_year}",
+            (
+                f"{target_min:.2f} °C"
+                if pd.notna(target_min)
+                else "N.A."
+            )
+        )
+
+    with col3:
+
+        st.metric(
+            f"Maximum {target_year}",
+            (
+                f"{target_max:.2f} °C"
+                if pd.notna(target_max)
+                else "N.A."
+            )
+        )
+
+    with col4:
+
+        st.metric(
+            "Standard Deviation",
+            (
+                f"{target_std:.2f} °C"
+                if pd.notna(target_std)
+                else "N.A."
+            )
+        )
+
+    st.caption(
+        f"Valid Daily Temperature Records: "
+        f"{len(target_long):,}"
+    )
+
+    # ============================================================
+    # TAB 1 — MONTHLY TEMPERATURE
+    # ============================================================
+    with tabs[0]:
+
+        st.subheader(
+            f"📊 Monthly Mean, Maximum and Minimum "
+            f"Temperature — {target_year}"
+        )
+
+        x = np.arange(
+            len(months)
+        )
+
+        fig, ax = plt.subplots(
+            figsize=(
+                FIG_WIDTH,
+                FIG_HEIGHT
+            )
+        )
+
+        fig.patch.set_facecolor(
+            BG_COLOR
+        )
+
+        ax.set_facecolor(
+            BG_COLOR
+        )
+
+        # ----------------------------------------------------
+        # MEAN
+        # ----------------------------------------------------
+        ax.plot(
+            x,
+            target_monthly_mean.values,
+            marker="o",
+            linewidth=2.5,
+            markersize=7,
+            color=LINE_COLOR,
+            label="Mean Temperature"
+        )
+
+        # ----------------------------------------------------
+        # MAXIMUM
+        # ----------------------------------------------------
+        ax.plot(
+            x,
+            target_monthly_max.values,
+            marker="^",
+            linewidth=2,
+            markersize=6,
+            color=MAX_COLOR,
+            label="Maximum Temperature"
+        )
+
+        # ----------------------------------------------------
+        # MINIMUM
+        # ----------------------------------------------------
+        ax.plot(
+            x,
+            target_monthly_min.values,
+            marker="v",
+            linewidth=2,
+            markersize=6,
+            color=MIN_COLOR,
+            label="Minimum Temperature"
+        )
+
+        # ----------------------------------------------------
+        # MEAN VALUE LABEL
+        # ----------------------------------------------------
+        for i, value in enumerate(
+            target_monthly_mean.values
+        ):
+
+            if pd.notna(value):
+
+                ax.annotate(
+                    f"{value:.1f}",
+                    (
+                        i,
+                        value
+                    ),
+                    xytext=(0, 10),
+                    textcoords="offset points",
+                    ha="center",
+                    fontsize=10,
+                    fontweight="bold"
+                )
+
+        ax.set_title(
+            f"{file_name}\n"
+            f"Monthly Mean, Maximum and Minimum "
+            f"Temperature — {target_year}",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel(
+            "Month",
+            fontsize=12
+        )
+
+        ax.set_ylabel(
+            "Temperature (°C)",
+            fontsize=12
+        )
+
+        ax.set_xticks(x)
+
+        ax.set_xticklabels(
+            months
+        )
+
+        ax.set_ylim(
+            TEMPERATURE_MIN,
+            TEMPERATURE_MAX
+        )
+
+        ax.grid(
+            True,
+            axis="y",
+            linestyle="--",
+            alpha=0.4
+        )
+
+        ax.legend(
+            bbox_to_anchor=(1.02, 1),
+            loc="upper left",
+            fontsize=9
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        # ----------------------------------------------------
+        # TABLE
+        # ----------------------------------------------------
+        monthly_table = pd.DataFrame({
+
+            "Month":
+                months,
+
+            f"Mean Temperature {target_year} (°C)":
+                target_monthly_mean.values,
+
+            f"Maximum Temperature {target_year} (°C)":
+                target_monthly_max.values,
+
+            f"Minimum Temperature {target_year} (°C)":
+                target_monthly_min.values
+
+        }).round(2)
+
+        st.dataframe(
+            monthly_table,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # ----------------------------------------------------
+        # DOWNLOAD CSV
+        # ----------------------------------------------------
+        csv = (
+            monthly_table
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "📥 Download Monthly Table CSV",
+            data=csv,
+            file_name=(
+                f"{selected_station}_"
+                f"monthly_temperature_"
+                f"{target_year}.csv"
+            ),
+            mime="text/csv",
+            key=(
+                f"download_monthly_temperature_"
+                f"{selected_station}_{target_year}"
+            )
+        )
+
+        plt.close(fig)
+
+    # ============================================================
+    # TAB 2 — HEATMAP
+    # ============================================================
+    with tabs[1]:
+
+        st.subheader(
+            f"🔥 Daily Temperature Heatmap — "
+            f"{target_year}"
+        )
+
+        heatmap_data = (
+            target_data
+            .set_index("hari")[months]
+            .copy()
+        )
+
+        fig, ax = plt.subplots(
+            figsize=(
+                FIG_WIDTH,
+                FIG_HEIGHT
+            )
+        )
+
+        fig.patch.set_facecolor(
+            BG_COLOR
+        )
+
+        ax.set_facecolor(
+            BG_COLOR
+        )
+
+        valid_values = heatmap_data.values[
+            ~pd.isna(
+                heatmap_data.values
+            )
+        ]
+
+        if len(valid_values) > 0:
+
+            vmin = valid_values.min()
+            vmax = valid_values.max()
+
+            if vmin == vmax:
+
+                vmax = vmin + 1
 
         else:
 
-            target_mean = np.nan
-            target_median = np.nan
-            target_max = np.nan
-            target_min = np.nan
-            target_std = np.nan
+            vmin = TEMPERATURE_MIN
+            vmax = TEMPERATURE_MAX
 
-        # ====================================================
-        # FILE HEADER
-        # ====================================================
-        st.divider()
-
-        st.header(
-            f"📁 {original_file_name}"
+        im = ax.imshow(
+            heatmap_data.values,
+            aspect="auto",
+            cmap="coolwarm",
+            vmin=vmin,
+            vmax=vmax
         )
 
-        # ====================================================
-        # READ ERROR
-        # ====================================================
-        if read_errors:
-
-            with st.expander(
-                "⚠️ Sheet yang tidak berjaya dibaca"
-            ):
-
-                error_df = pd.DataFrame(
-                    read_errors
-                )
-
-                st.dataframe(
-                    error_df,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-        # ====================================================
-        # BASIC METRICS
-        # ====================================================
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-
-            if pd.notna(target_mean):
-
-                st.metric(
-                    f"Mean {target_year}",
-                    f"{target_mean:.2f} °C"
-                )
-
-            else:
-
-                st.metric(
-                    f"Mean {target_year}",
-                    "N.A."
-                )
-
-        with col2:
-
-            if pd.notna(target_min):
-
-                st.metric(
-                    f"Minimum {target_year}",
-                    f"{target_min:.2f} °C"
-                )
-
-            else:
-
-                st.metric(
-                    f"Minimum {target_year}",
-                    "N.A."
-                )
-
-        with col3:
-
-            if pd.notna(target_max):
-
-                st.metric(
-                    f"Maximum {target_year}",
-                    f"{target_max:.2f} °C"
-                )
-
-            else:
-
-                st.metric(
-                    f"Maximum {target_year}",
-                    "N.A."
-                )
-
-        with col4:
-
-            if pd.notna(target_std):
-
-                st.metric(
-                    "Standard Deviation",
-                    f"{target_std:.2f} °C"
-                )
-
-            else:
-
-                st.metric(
-                    "Standard Deviation",
-                    "N.A."
-                )
-
-        # ====================================================
-        # VALID DAILY RECORDS
-        # ====================================================
-        st.caption(
-            f"Valid Daily Temperature Records: "
-            f"{len(target_long):,}"
+        ax.set_xticks(
+            range(len(months))
         )
 
+        ax.set_xticklabels(
+            months
+        )
 
-        # ====================================================
-        # TAB 1 — MONTHLY TEMPERATURE
-        # ====================================================
-        with tabs[0]:
+        ax.set_yticks(
+            range(len(heatmap_data.index))
+        )
 
-            st.subheader(
-                f"Monthly Temperature "
-                f"{target_year}"
+        ax.set_yticklabels(
+            heatmap_data.index.astype(int)
+        )
+
+        cbar = fig.colorbar(
+            im,
+            ax=ax
+        )
+
+        cbar.set_label(
+            "Temperature (°C)",
+            fontsize=11
+        )
+
+        ax.set_title(
+            f"{file_name}\n"
+            f"Daily Temperature Heatmap — "
+            f"{target_year}",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel(
+            "Month",
+            fontsize=12
+        )
+
+        ax.set_ylabel(
+            "Day",
+            fontsize=12
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        plt.close(fig)
+
+    # ============================================================
+    # TAB 3 — ANOMALY
+    # ============================================================
+    with tabs[2]:
+
+        st.subheader(
+            f"📉 Temperature Anomaly {target_year} "
+            f"Relative to Mean {YEAR_RANGE_TEXT}"
+        )
+
+        # ----------------------------------------------------
+        # CLIMATOLOGICAL MEAN
+        # ----------------------------------------------------
+        period_long = period_data.melt(
+            id_vars=[
+                "Year",
+                "hari"
+            ],
+
+            value_vars=months,
+
+            var_name="Month",
+
+            value_name="Temperature"
+        )
+
+        period_long["Month_Number"] = (
+            period_long["Month"]
+            .map(month_number)
+        )
+
+        period_long["Days_In_Month"] = (
+            period_long.apply(
+                lambda row:
+                    calendar.monthrange(
+                        int(row["Year"]),
+                        int(row["Month_Number"])
+                    )[1],
+                axis=1
             )
+        )
 
-            x = np.arange(
-                len(months)
+        period_long = period_long[
+            period_long["hari"]
+            <= period_long["Days_In_Month"]
+        ].copy()
+
+        period_long = period_long.dropna(
+            subset=["Temperature"]
+        )
+
+        climatological_mean = (
+            period_long
+            .groupby("Month")["Temperature"]
+            .mean()
+            .reindex(months)
+        )
+
+        anomaly = (
+            target_monthly_mean
+            - climatological_mean
+        )
+
+        # ----------------------------------------------------
+        # GRAPH
+        # ----------------------------------------------------
+        fig, ax = plt.subplots(
+            figsize=(
+                FIG_WIDTH,
+                FIG_HEIGHT
             )
+        )
 
-            fig, ax = plt.subplots(
-                figsize=(
-                    FIG_WIDTH,
-                    FIG_HEIGHT
+        fig.patch.set_facecolor(
+            BG_COLOR
+        )
+
+        ax.set_facecolor(
+            BG_COLOR
+        )
+
+        anomaly_colors = [
+
+            "steelblue"
+            if pd.notna(value) and value >= 0
+            else "darkorange"
+            if pd.notna(value) and value < 0
+            else "lightgray"
+
+            for value
+            in anomaly.values
+        ]
+
+        bars = ax.bar(
+            x,
+            anomaly.values,
+            width=0.60,
+            color=anomaly_colors,
+            edgecolor="black",
+            linewidth=0.8
+        )
+
+        ax.axhline(
+            0,
+            color="black",
+            linewidth=1
+        )
+
+        # ----------------------------------------------------
+        # VALUE LABEL
+        # ----------------------------------------------------
+        for bar, value in zip(
+            bars,
+            anomaly.values
+        ):
+
+            if pd.notna(value):
+
+                if value >= 0:
+
+                    offset = 4
+                    vertical = "bottom"
+
+                else:
+
+                    offset = -12
+                    vertical = "top"
+
+                ax.annotate(
+                    f"{value:.2f}°C",
+                    (
+                        bar.get_x()
+                        + bar.get_width() / 2,
+                        value
+                    ),
+                    xytext=(0, offset),
+                    textcoords="offset points",
+                    ha="center",
+                    va=vertical,
+                    fontsize=9
                 )
-            )
 
-            fig.patch.set_facecolor(
-                BG_COLOR
-            )
+        ax.set_title(
+            f"{file_name}\n"
+            f"Temperature Anomaly {target_year} "
+            f"Relative to Mean {YEAR_RANGE_TEXT}",
+            fontsize=16,
+            fontweight="bold"
+        )
 
-            ax.set_facecolor(
-                BG_COLOR
-            )
+        ax.set_xlabel(
+            "Month",
+            fontsize=12
+        )
 
-            # ------------------------------------------------
-            # MEAN
-            # ------------------------------------------------
-            ax.plot(
-                x,
+        ax.set_ylabel(
+            "Temperature Anomaly (°C)",
+            fontsize=12
+        )
+
+        ax.set_xticks(x)
+
+        ax.set_xticklabels(
+            months
+        )
+
+        ax.grid(
+            True,
+            axis="y",
+            linestyle="--",
+            alpha=0.4
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        # ----------------------------------------------------
+        # ANOMALY TABLE
+        # ----------------------------------------------------
+        anomaly_table = pd.DataFrame({
+
+            "Month":
+                months,
+
+            f"Mean Temperature {target_year} (°C)":
                 target_monthly_mean.values,
-                marker="o",
-                linewidth=2.5,
-                markersize=7,
-                label="Mean Temperature"
-            )
 
-            # ------------------------------------------------
-            # MAX
-            # ------------------------------------------------
-            ax.plot(
-                x,
+            f"Mean Temperature {YEAR_RANGE_TEXT} (°C)":
+                climatological_mean.values,
+
+            "Anomaly (°C)":
+                anomaly.values
+
+        }).round(2)
+
+        st.dataframe(
+            anomaly_table,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # ----------------------------------------------------
+        # DOWNLOAD CSV
+        # ----------------------------------------------------
+        csv = (
+            anomaly_table
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "📥 Download Anomaly CSV",
+            data=csv,
+            file_name=(
+                f"{selected_station}_"
+                f"temperature_anomaly_"
+                f"{target_year}.csv"
+            ),
+            mime="text/csv",
+            key=(
+                f"download_temperature_anomaly_"
+                f"{selected_station}_{target_year}"
+            )
+        )
+
+        plt.close(fig)
+
+    # ============================================================
+    # TAB 4 — STATISTICS
+    # ============================================================
+    with tabs[3]:
+
+        st.subheader(
+            f"📋 Temperature Statistical Analysis "
+            f"— {target_year}"
+        )
+
+        # ----------------------------------------------------
+        # MONTHLY STATISTICS
+        # ----------------------------------------------------
+        monthly_std = (
+            target_long
+            .groupby("Month")["Temperature"]
+            .std()
+            .reindex(months)
+        )
+
+        statistics_table = pd.DataFrame({
+
+            "Month":
+                months,
+
+            "Mean Temperature (°C)":
+                target_monthly_mean.values,
+
+            "Maximum Temperature (°C)":
                 target_monthly_max.values,
-                marker="^",
-                linewidth=2,
-                markersize=6,
-                label="Maximum Temperature"
-            )
 
-            # ------------------------------------------------
-            # MIN
-            # ------------------------------------------------
-            ax.plot(
-                x,
+            "Minimum Temperature (°C)":
                 target_monthly_min.values,
-                marker="v",
-                linewidth=2,
-                markersize=6,
-                label="Minimum Temperature"
-            )
 
-            # ------------------------------------------------
-            # MEAN LABELS
-            # ------------------------------------------------
-            for i, value in enumerate(
-                target_monthly_mean.values
-            ):
+            "Standard Deviation (°C)":
+                monthly_std.values
 
-                if pd.notna(value):
+        }).round(2)
 
-                    ax.annotate(
-                        f"{value:.1f}",
-                        (
-                            i,
-                            value
-                        ),
-                        xytext=(0, 10),
-                        textcoords="offset points",
-                        ha="center",
-                        fontsize=10,
-                        fontweight="bold"
-                    )
+        st.dataframe(
+            statistics_table,
+            use_container_width=True,
+            hide_index=True
+        )
 
-            ax.set_title(
-                f"{file_name}\n"
-                f"Monthly Mean, Maximum and "
-                f"Minimum Temperature {target_year}",
-                fontsize=16,
-                fontweight="bold"
-            )
+        # ----------------------------------------------------
+        # OVERALL STATISTICS
+        # ----------------------------------------------------
+        st.markdown(
+            "### Overall Statistics"
+        )
 
-            ax.set_xlabel(
-                "Month",
-                fontsize=12
-            )
+        stat_col1, stat_col2, stat_col3, stat_col4, stat_col5 = (
+            st.columns(5)
+        )
 
-            ax.set_ylabel(
-                "Temperature (°C)",
-                fontsize=12
-            )
+        with stat_col1:
 
-            ax.set_xticks(x)
-
-            ax.set_xticklabels(
-                months
-            )
-
-            ax.set_ylim(
-                TEMPERATURE_MIN,
-                TEMPERATURE_MAX
-            )
-
-            ax.grid(
-                True,
-                axis="y",
-                linestyle="--",
-                alpha=0.4
-            )
-
-            ax.legend(
-                bbox_to_anchor=(1.02, 1),
-                loc="upper left",
-                fontsize=9
-            )
-
-            plt.tight_layout()
-
-            st.pyplot(
-                fig,
-                use_container_width=True
-            )
-
-            # ------------------------------------------------
-            # TABLE
-            # ------------------------------------------------
-            plot_table = pd.DataFrame({
-
-                "Month":
-                    months,
-
-                f"Mean Temperature {target_year} (°C)":
-                    target_monthly_mean.values,
-
-                f"Maximum Temperature {target_year} (°C)":
-                    target_monthly_max.values,
-
-                f"Minimum Temperature {target_year} (°C)":
-                    target_monthly_min.values
-
-            })
-
-            plot_table = plot_table.round(2)
-
-            st.dataframe(
-                plot_table,
-                use_container_width=True,
-                hide_index=True
-            )
-
-            # ------------------------------------------------
-            # DOWNLOAD CSV
-            # ------------------------------------------------
-            csv = (
-                plot_table
-                .to_csv(index=False)
-                .encode("utf-8")
-            )
-
-            st.download_button(
-                "📥 Download Table CSV",
-                data=csv,
-                file_name=(
-                    f"{selected_station}_"
-                    f"monthly_temperature_"
-                    f"{target_year}.csv"
-                ),
-                mime="text/csv",
-                key=(
-                    f"download_temperature_table_"
-                    f"{selected_station}_{target_year}"
-                )
-            )
-
-            plt.close(fig)
-
-
-        # ====================================================
-        # TAB 2 — HEATMAP
-        # ====================================================
-        with tabs[1]:
-
-            st.subheader(
-                f"Daily Temperature Heatmap "
-                f"{target_year}"
-            )
-
-            heatmap_data = (
-                target_data
-                .set_index("hari")[months]
-            )
-
-            fig, ax = plt.subplots(
-                figsize=(14, 8)
-            )
-
-            fig.patch.set_facecolor(
-                BG_COLOR
-            )
-
-            ax.set_facecolor(
-                BG_COLOR
-            )
-
-            plot_data = heatmap_data.copy()
-
-            valid_values = plot_data.values[
-                ~pd.isna(
-                    plot_data.values
-                )
-            ]
-
-            if len(valid_values) > 0:
-
-                vmin = valid_values.min()
-                vmax = valid_values.max()
-
-                if vmin == vmax:
-                    vmax = vmin + 1
-
-            else:
-
-                vmin = TEMPERATURE_MIN
-                vmax = TEMPERATURE_MAX
-
-            im = ax.imshow(
-                plot_data.values,
-                aspect="auto",
-                cmap="coolwarm",
-                vmin=vmin,
-                vmax=vmax
-            )
-
-            ax.set_xticks(
-                range(len(months))
-            )
-
-            ax.set_xticklabels(
-                months
-            )
-
-            ax.set_yticks(
-                range(len(plot_data.index))
-            )
-
-            ax.set_yticklabels(
-                plot_data.index.astype(str)
-            )
-
-            cbar = fig.colorbar(
-                im,
-                ax=ax
-            )
-
-            cbar.set_label(
-                "Temperature (°C)",
-                fontsize=11
-            )
-
-            ax.set_title(
-                f"{file_name}\n"
-                f"Daily Temperature Heatmap "
-                f"{target_year}",
-                fontsize=16,
-                fontweight="bold"
-            )
-
-            ax.set_xlabel(
-                "Month",
-                fontsize=12
-            )
-
-            ax.set_ylabel(
-                "Day",
-                fontsize=12
-            )
-
-            plt.tight_layout()
-
-            st.pyplot(
-                fig,
-                use_container_width=True
-            )
-
-            plt.close(fig)
-
-
-        # ====================================================
-        # TAB 3 — ANOMALY
-        # ====================================================
-        with tabs[2]:
-
-            st.subheader(
-                f"Monthly Temperature Anomaly "
-                f"{target_year}"
-            )
-
-            # ------------------------------------------------
-            # CLIMATOLOGICAL MEAN
-            # ------------------------------------------------
-            monthly_mean_all = (
-                all_daily[months]
-                .mean()
-            )
-
-            anomaly = (
-                target_monthly_mean
-                - monthly_mean_all
-            )
-
-            fig, ax = plt.subplots(
-                figsize=(
-                    FIG_WIDTH,
-                    FIG_HEIGHT
-                )
-            )
-
-            fig.patch.set_facecolor(
-                BG_COLOR
-            )
-
-            ax.set_facecolor(
-                BG_COLOR
-            )
-
-            bar_colors = [
-                "red" if value > 0
-                else "blue" if value < 0
-                else "gray"
-                for value in anomaly.values
-            ]
-
-            ax.bar(
-                x,
-                anomaly.values,
-                edgecolor="black",
-                linewidth=0.8
-            )
-
-            ax.axhline(
-                0,
-                linewidth=1.2
-            )
-
-            ax.set_title(
-                f"{file_name}\n"
-                f"Temperature Anomaly "
-                f"{target_year}",
-                fontsize=16,
-                fontweight="bold"
-            )
-
-            ax.set_xlabel(
-                "Month",
-                fontsize=12
-            )
-
-            ax.set_ylabel(
-                "Temperature Anomaly (°C)",
-                fontsize=12
-            )
-
-            ax.set_xticks(x)
-
-            ax.set_xticklabels(
-                months
-            )
-
-            ax.grid(
-                True,
-                axis="y",
-                linestyle="--",
-                alpha=0.4
-            )
-
-            plt.tight_layout()
-
-            st.pyplot(
-                fig,
-                use_container_width=True
-            )
-
-            # ------------------------------------------------
-            # ANOMALY TABLE
-            # ------------------------------------------------
-            anomaly_table = pd.DataFrame({
-
-                "Month":
-                    months,
-
-                f"Temperature {target_year} (°C)":
-                    target_monthly_mean.values,
-
-                "Climatological Mean (°C)":
-                    monthly_mean_all.values,
-
-                "Anomaly (°C)":
-                    anomaly.values
-
-            }).round(2)
-
-            st.dataframe(
-                anomaly_table,
-                use_container_width=True,
-                hide_index=True
-            )
-
-            plt.close(fig)
-
-
-        # ====================================================
-        # TAB 4 — STATISTICS
-        # ====================================================
-        with tabs[3]:
-
-            st.subheader(
-                f"Temperature Statistics "
-                f"{target_year}"
-            )
-
-            stat_col1, stat_col2, stat_col3, stat_col4, stat_col5 = (
-                st.columns(5)
-            )
-
-            with stat_col1:
-                st.metric(
-                    "Mean",
+            st.metric(
+                "Mean",
+                (
                     f"{target_mean:.2f} °C"
                     if pd.notna(target_mean)
                     else "N.A."
                 )
+            )
 
-            with stat_col2:
-                st.metric(
-                    "Median",
+        with stat_col2:
+
+            st.metric(
+                "Median",
+                (
                     f"{target_median:.2f} °C"
                     if pd.notna(target_median)
                     else "N.A."
                 )
+            )
 
-            with stat_col3:
-                st.metric(
-                    "Maximum",
+        with stat_col3:
+
+            st.metric(
+                "Maximum",
+                (
                     f"{target_max:.2f} °C"
                     if pd.notna(target_max)
                     else "N.A."
                 )
+            )
 
-            with stat_col4:
-                st.metric(
-                    "Minimum",
+        with stat_col4:
+
+            st.metric(
+                "Minimum",
+                (
                     f"{target_min:.2f} °C"
                     if pd.notna(target_min)
                     else "N.A."
                 )
+            )
 
-            with stat_col5:
-                st.metric(
-                    "Std. Deviation",
+        with stat_col5:
+
+            st.metric(
+                "Std. Deviation",
+                (
                     f"{target_std:.2f} °C"
                     if pd.notna(target_std)
                     else "N.A."
                 )
+            )
 
-            statistics_table = pd.DataFrame({
+        overall_statistics = pd.DataFrame({
 
-                "Statistic": [
-                    "Mean",
-                    "Median",
-                    "Maximum",
-                    "Minimum",
-                    "Standard Deviation"
-                ],
+            "Statistic": [
 
-                "Temperature (°C)": [
-                    target_mean,
-                    target_median,
-                    target_max,
-                    target_min,
-                    target_std
+                "Mean",
+                "Median",
+                "Maximum",
+                "Minimum",
+                "Standard Deviation"
+
+            ],
+
+            "Temperature (°C)": [
+
+                target_mean,
+                target_median,
+                target_max,
+                target_min,
+                target_std
+
+            ]
+
+        }).round(2)
+
+        st.dataframe(
+            overall_statistics,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # ----------------------------------------------------
+        # DOWNLOAD CSV
+        # ----------------------------------------------------
+        csv = (
+            statistics_table
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "📥 Download Statistics CSV",
+            data=csv,
+            file_name=(
+                f"{selected_station}_"
+                f"temperature_statistics_"
+                f"{target_year}.csv"
+            ),
+            mime="text/csv",
+            key=(
+                f"download_temperature_statistics_"
+                f"{selected_station}_{target_year}"
+            )
+        )
+
+    # ============================================================
+    # TAB 5 — DAILY TEMPERATURE
+    # ============================================================
+    with tabs[4]:
+
+        st.subheader(
+            f"📈 Daily Temperature — "
+            f"{target_year}"
+        )
+
+        daily_plot = (
+            target_long
+            .sort_values(
+                [
+                    "Month_Number",
+                    "hari"
                 ]
+            )
+            .reset_index(drop=True)
+        )
 
-            }).round(2)
+        if daily_plot.empty:
 
-            st.dataframe(
-                statistics_table,
-                use_container_width=True,
-                hide_index=True
+            st.warning(
+                "⚠️ Tiada rekod suhu harian "
+                "yang sah untuk dipaparkan."
             )
 
-
-        # ====================================================
-        # TAB 5 — DAILY TEMPERATURE
-        # ====================================================
-        with tabs[4]:
-
-            st.subheader(
-                f"Daily Temperature "
-                f"{target_year}"
-            )
-
-            daily_plot = (
-                target_long
-                .sort_values(
-                    ["Month_Number", "hari"]
-                )
-                .reset_index(drop=True)
-            )
+        else:
 
             fig, ax = plt.subplots(
                 figsize=(
@@ -1668,14 +1903,17 @@ with main_tabs[0]:
             )
 
             ax.plot(
-                range(len(daily_plot)),
+                range(
+                    len(daily_plot)
+                ),
                 daily_plot["Temperature"],
-                linewidth=1.2
+                linewidth=1.2,
+                color=LINE_COLOR
             )
 
             ax.set_title(
                 f"{file_name}\n"
-                f"Daily Temperature "
+                f"Daily Temperature — "
                 f"{target_year}",
                 fontsize=16,
                 fontweight="bold"
@@ -1710,518 +1948,56 @@ with main_tabs[0]:
                 use_container_width=True
             )
 
+            # ------------------------------------------------
+            # DAILY DATA TABLE
+            # ------------------------------------------------
+            daily_table = daily_plot[
+                [
+                    "Year",
+                    "Month",
+                    "hari",
+                    "Temperature"
+                ]
+            ].copy()
+
+            daily_table.columns = [
+                "Year",
+                "Month",
+                "Day",
+                "Temperature (°C)"
+            ]
+
+            st.dataframe(
+                daily_table.round(2),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # ------------------------------------------------
+            # DOWNLOAD CSV
+            # ------------------------------------------------
+            csv = (
+                daily_table
+                .to_csv(index=False)
+                .encode("utf-8")
+            )
+
+            st.download_button(
+                "📥 Download Daily Temperature CSV",
+                data=csv,
+                file_name=(
+                    f"{selected_station}_"
+                    f"daily_temperature_"
+                    f"{target_year}.csv"
+                ),
+                mime="text/csv",
+                key=(
+                    f"download_daily_temperature_"
+                    f"{selected_station}_{target_year}"
+                )
+            )
+
             plt.close(fig)
-# ========================================================
-# TAB 3
-# TEMPERATURE ANOMALY
-# ========================================================
-with tabs[2]:
-
-    st.subheader(
-        f"Temperature Anomaly {target_year} "
-        f"Relative to Mean {YEAR_RANGE_TEXT}"
-    )
-
-    # ----------------------------------------------------
-    # CLIMATOLOGICAL MONTHLY MEAN
-    # ----------------------------------------------------
-    climatological_mean = (
-        all_daily[months]
-        .mean()
-    )
-
-    anomaly = (
-        target_monthly_mean
-        - climatological_mean
-    )
-
-    fig, ax = plt.subplots(
-        figsize=(14, 8)
-    )
-
-    bg_color = BG_COLOR
-
-    fig.patch.set_facecolor(
-        bg_color
-    )
-
-    ax.set_facecolor(
-        bg_color
-    )
-
-    anomaly_colors = []
-
-    for value in anomaly.values:
-
-        if pd.isna(value):
-            anomaly_colors.append("lightgray")
-
-        elif value >= 0:
-            anomaly_colors.append("steelblue")
-
-        else:
-            anomaly_colors.append("darkorange")
-
-    bars = ax.bar(
-        x,
-        anomaly.values,
-        width=0.60,
-        color=anomaly_colors,
-        edgecolor="black",
-        linewidth=0.8
-    )
-
-    ax.axhline(
-        0,
-        color="black",
-        linewidth=1
-    )
-
-    # ----------------------------------------------------
-    # VALUE LABEL
-    # ----------------------------------------------------
-    for bar, value in zip(
-        bars,
-        anomaly.values
-    ):
-
-        if pd.notna(value):
-
-            if value >= 0:
-                offset = 4
-                vertical = "bottom"
-
-            else:
-                offset = -12
-                vertical = "top"
-
-            ax.annotate(
-                f"{value:.2f}°C",
-                (
-                    bar.get_x()
-                    + bar.get_width() / 2,
-                    value
-                ),
-                xytext=(0, offset),
-                textcoords="offset points",
-                ha="center",
-                va=vertical,
-                fontsize=9
-            )
-
-    ax.set_title(
-        f"{file_name}\n"
-        f"Temperature Anomaly {target_year} "
-        f"Relative to Mean {YEAR_RANGE_TEXT}",
-        fontsize=16,
-        fontweight="bold"
-    )
-
-    ax.set_xlabel(
-        "Month",
-        fontsize=12
-    )
-
-    ax.set_ylabel(
-        "Temperature Anomaly (°C)",
-        fontsize=12
-    )
-
-    ax.set_xticks(x)
-
-    ax.set_xticklabels(
-        months
-    )
-
-    ax.grid(
-        True,
-        axis="y",
-        linestyle="--",
-        alpha=0.4
-    )
-
-    plt.tight_layout()
-
-    st.pyplot(
-        fig,
-        use_container_width=True
-    )
-
-    # ----------------------------------------------------
-    # DOWNLOAD PNG
-    # ----------------------------------------------------
-    img_buffer = io.BytesIO()
-
-    fig.savefig(
-        img_buffer,
-        format="png",
-        dpi=300,
-        bbox_inches="tight"
-    )
-
-    img_buffer.seek(0)
-
-    st.download_button(
-        "📥 Download Plot PNG",
-        data=img_buffer.getvalue(),
-        file_name=(
-            f"{selected_station}_"
-            f"temperature_anomaly_"
-            f"{target_year}.png"
-        ),
-        mime="image/png",
-        key=(
-            f"download_temperature_anomaly_"
-            f"{selected_station}_{target_year}"
-        )
-    )
-
-    # ----------------------------------------------------
-    # TABLE DATA
-    # ----------------------------------------------------
-    anomaly_table = pd.DataFrame({
-
-        "Month":
-            months,
-
-        f"Mean Temperature {target_year} (°C)":
-            target_monthly_mean.values,
-
-        f"Mean Temperature {YEAR_RANGE_TEXT} (°C)":
-            climatological_mean.values,
-
-        "Anomaly (°C)":
-            anomaly.values
-
-    })
-
-    anomaly_table = anomaly_table.round(2)
-
-    st.dataframe(
-        anomaly_table,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    # ----------------------------------------------------
-    # DOWNLOAD CSV
-    # ----------------------------------------------------
-    csv = (
-        anomaly_table
-        .to_csv(index=False)
-        .encode("utf-8")
-    )
-
-    st.download_button(
-        "📥 Download Table CSV",
-        data=csv,
-        file_name=(
-            f"{selected_station}_"
-            f"temperature_anomaly_"
-            f"{target_year}.csv"
-        ),
-        mime="text/csv",
-        key=(
-            f"download_temperature_anomaly_table_"
-            f"{selected_station}_{target_year}"
-        )
-    )
-
-    plt.close(fig)
-
-
-# ========================================================
-# TAB 4
-# STATISTICS
-# ========================================================
-with tabs[3]:
-
-    st.subheader(
-        f"📋 Temperature Statistical Analysis "
-        f"{target_year}"
-    )
-
-    # ----------------------------------------------------
-    # MONTHLY STATISTICS
-    # ----------------------------------------------------
-    statistics_table = pd.DataFrame({
-
-        "Month":
-            months,
-
-        "Mean Temperature (°C)":
-            target_monthly_mean.values,
-
-        "Maximum Temperature (°C)":
-            target_monthly_max.values,
-
-        "Minimum Temperature (°C)":
-            target_monthly_min.values,
-
-        "Standard Deviation (°C)":
-            target_data[months].std().values
-
-    })
-
-    statistics_table = (
-        statistics_table
-        .round(2)
-    )
-
-    st.dataframe(
-        statistics_table,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    # ----------------------------------------------------
-    # OVERALL STATISTICS
-    # ----------------------------------------------------
-    st.markdown("### Overall Statistics")
-
-    stat_table = pd.DataFrame({
-
-        "Statistic": [
-            "Mean",
-            "Median",
-            "Maximum",
-            "Minimum",
-            "Standard Deviation"
-        ],
-
-        "Temperature (°C)": [
-            target_mean,
-            target_median,
-            target_max,
-            target_min,
-            target_std
-        ]
-
-    })
-
-    stat_table = (
-        stat_table
-        .round(2)
-    )
-
-    st.dataframe(
-        stat_table,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    # ----------------------------------------------------
-    # DOWNLOAD
-    # ----------------------------------------------------
-    csv = (
-        statistics_table
-        .to_csv(index=False)
-        .encode("utf-8")
-    )
-
-    st.download_button(
-        "📥 Download Monthly Statistics CSV",
-        data=csv,
-        file_name=(
-            f"{selected_station}_"
-            f"temperature_statistics_"
-            f"{target_year}.csv"
-        ),
-        mime="text/csv",
-        key=(
-            f"download_temperature_statistics_"
-            f"{selected_station}_{target_year}"
-        )
-    )
-
-
-# ========================================================
-# TAB 5
-# MAXIMUM DAILY TEMPERATURE
-# ========================================================
-with tabs[4]:
-
-    st.subheader(
-        f"Maximum Daily Temperature by Month - "
-        f"{target_year}"
-    )
-
-    # ----------------------------------------------------
-    # MAXIMUM DAILY TEMPERATURE
-    # ----------------------------------------------------
-    max_daily_temperature = (
-        target_data[months]
-        .max()
-    )
-
-    fig, ax = plt.subplots(
-        figsize=(14, 8)
-    )
-
-    bg_color = BG_COLOR
-
-    fig.patch.set_facecolor(
-        bg_color
-    )
-
-    ax.set_facecolor(
-        bg_color
-    )
-
-    bars = ax.bar(
-        x,
-        max_daily_temperature.values,
-        width=0.60,
-        color=st.session_state.max_daily_color,
-        edgecolor="black",
-        linewidth=0.8
-    )
-
-    # ----------------------------------------------------
-    # VALUE LABEL
-    # ----------------------------------------------------
-    for bar, value in zip(
-        bars,
-        max_daily_temperature.values
-    ):
-
-        if pd.notna(value):
-
-            ax.annotate(
-                f"{value:.1f}",
-                (
-                    bar.get_x()
-                    + bar.get_width() / 2,
-                    value
-                ),
-                xytext=(0, 6),
-                textcoords="offset points",
-                ha="center",
-                fontsize=10,
-                fontweight="bold"
-            )
-
-    ax.set_title(
-        f"{file_name}\n"
-        f"Maximum Daily Temperature by Month - "
-        f"{target_year}",
-        fontsize=16,
-        fontweight="bold"
-    )
-
-    ax.set_xlabel(
-        "Month",
-        fontsize=12
-    )
-
-    ax.set_ylabel(
-        "Maximum Daily Temperature (°C)",
-        fontsize=12
-    )
-
-    ax.set_xticks(x)
-
-    ax.set_xticklabels(
-        months
-    )
-
-    ax.set_ylim(
-        TEMPERATURE_MIN,
-        TEMPERATURE_MAX
-    )
-
-    ax.grid(
-        True,
-        axis="y",
-        linestyle="--",
-        alpha=0.4
-    )
-
-    plt.tight_layout()
-
-    st.pyplot(
-        fig,
-        use_container_width=True
-    )
-
-    # ----------------------------------------------------
-    # DOWNLOAD PNG
-    # ----------------------------------------------------
-    img_buffer = io.BytesIO()
-
-    fig.savefig(
-        img_buffer,
-        format="png",
-        dpi=300,
-        bbox_inches="tight"
-    )
-
-    img_buffer.seek(0)
-
-    st.download_button(
-        "📥 Download Plot PNG",
-        data=img_buffer.getvalue(),
-        file_name=(
-            f"{selected_station}_"
-            f"maximum_daily_temperature_"
-            f"{target_year}.png"
-        ),
-        mime="image/png",
-        key=(
-            f"download_max_temperature_"
-            f"{selected_station}_{target_year}"
-        )
-    )
-
-    # ----------------------------------------------------
-    # TABLE DATA
-    # ----------------------------------------------------
-    max_temperature_table = pd.DataFrame({
-
-        "Month":
-            months,
-
-        "Maximum Daily Temperature (°C)":
-            max_daily_temperature.values
-
-    })
-
-    max_temperature_table = (
-        max_temperature_table
-        .round(2)
-    )
-
-    st.dataframe(
-        max_temperature_table,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    # ----------------------------------------------------
-    # DOWNLOAD CSV
-    # ----------------------------------------------------
-    csv = (
-        max_temperature_table
-        .to_csv(index=False)
-        .encode("utf-8")
-    )
-
-    st.download_button(
-        "📥 Download Table CSV",
-        data=csv,
-        file_name=(
-            f"{selected_station}_"
-            f"maximum_daily_temperature_"
-            f"{target_year}.csv"
-        ),
-        mime="text/csv",
-        key=(
-            f"download_max_temperature_table_"
-            f"{selected_station}_{target_year}"
-        )
-    )
-
-    plt.close(fig)
 # ============================================================
 # MAIN TAB 2 — PURATA SEPANJANG TEMPOH
 # ============================================================
