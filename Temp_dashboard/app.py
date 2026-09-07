@@ -315,11 +315,11 @@ selected_chart = st.sidebar.selectbox(
     chart_options
 )
 
-
 # ============================================================
 # MONTHLY TEMPERATURE
 # ============================================================
-if selected_chart == "Monthly Temperature":
+
+if selected_chart == "Bar + Line":
 
     selected_month = st.sidebar.selectbox(
         "Select Month",
@@ -338,8 +338,6 @@ if selected_chart == "Monthly Temperature":
             selected_index
         ]
     )
-
-
 # ============================================================
 # MEAN LINE
 # ============================================================
@@ -634,7 +632,6 @@ def analyze_file(uploaded_file):
 
     }
 
-
 # ============================================================
 # PROCESS ALL UPLOADED FILES
 # ============================================================
@@ -671,25 +668,9 @@ with st.spinner(
 
 
 # ============================================================
-# SENARAI STESEN
-# ============================================================
-
-station_names = []
-
-for result in results:
-
-    if result.get(
-        "success",
-        False
-    ):
-
-        station_names.append(
-            result["station_name"]
-        )
-
-# ============================================================
 # CHECK RESULTS
 # ============================================================
+
 successful_results = [
 
     result
@@ -721,6 +702,7 @@ failed_results = [
 # ============================================================
 # FILE SUMMARY
 # ============================================================
+
 st.success(
 
     f"✅ {len(successful_results)} daripada "
@@ -748,19 +730,41 @@ if failed_results:
         )
 
 
+# ============================================================
+# STOP IF NO SUCCESSFUL DATA
+# ============================================================
+
 if not successful_results:
+
+    st.error(
+        "❌ Tiada data suhu yang berjaya dianalisis."
+    )
 
     st.stop()
 
 
 # ============================================================
+# STATION NAMES
+# ============================================================
+
+station_names = [
+
+    result["file_name"]
+
+    for result in successful_results
+
+]
+
+
+# ============================================================
 # AVAILABLE YEARS
 # ============================================================
+
 available_years = sorted(
 
     set(
 
-        year
+        int(year)
 
         for result in successful_results
 
@@ -774,9 +778,19 @@ available_years = sorted(
 )
 
 
+if not available_years:
+
+    st.error(
+        "❌ Tiada tahun yang sah dalam data suhu."
+    )
+
+    st.stop()
+
+
 # ============================================================
 # TARGET YEAR
 # ============================================================
+
 target_year = st.sidebar.selectbox(
 
     "📅 Target Year",
@@ -791,7 +805,6 @@ target_year = st.sidebar.selectbox(
 
 )
 
-
 target_year = int(
     target_year
 )
@@ -800,21 +813,12 @@ target_year = int(
 # ============================================================
 # STATION SELECTION
 # ============================================================
-station_options = [
-
-    result["file_name"]
-
-    for result
-    in successful_results
-
-]
-
 
 selected_station = st.sidebar.selectbox(
 
     "📍 Select Station",
 
-    station_options,
+    station_names,
 
     key="main_station"
 
@@ -822,28 +826,66 @@ selected_station = st.sidebar.selectbox(
 
 
 # ============================================================
-# FILTER DISPLAY RESULT
+# GET SELECTED STATION DATA
 # ============================================================
-display_results = [
 
-    result
+selected_result = next(
 
-    for result
-    in successful_results
+    (
+        result
 
-    if result["file_name"]
-    == selected_station
+        for result
+        in successful_results
 
-]
+        if result["file_name"]
+        == selected_station
+
+    ),
+
+    None
+
+)
 
 
-if not selected_station:
+if selected_result is None:
 
-    st.warning(
-        "Sila pilih sekurang-kurangnya satu stesen."
+    st.error(
+        "❌ Data stesen yang dipilih tidak dijumpai."
     )
 
     st.stop()
+
+
+# ============================================================
+# SELECTED STATION DAILY DATA
+# ============================================================
+
+all_daily = selected_result[
+    "all_daily"
+].copy()
+
+
+# ============================================================
+# FILTER SELECTED ANALYSIS PERIOD
+# ============================================================
+
+period_data = all_daily[
+    all_daily["Year"].between(
+        int(START_YEAR),
+        int(END_YEAR)
+    )
+].copy()
+
+
+if period_data.empty:
+
+    st.warning(
+        "⚠️ Tiada data dalam tempoh analisis "
+        f"{YEAR_RANGE_TEXT}."
+    )
+
+    st.stop()
+
 # ============================================================
 # MAIN TABS
 # ============================================================
