@@ -208,6 +208,16 @@ YEAR_RANGE_TEXT = (
 
 
 # ============================================================
+# SENARAI NAMA STESEN
+# ============================================================
+
+station_names = list(results.keys())
+
+if not station_names:
+    st.warning("Tiada data stesen yang berjaya diproses.")
+    st.stop()
+
+# ============================================================
 # SIDEBAR SETTINGS
 # ============================================================
 st.sidebar.header(
