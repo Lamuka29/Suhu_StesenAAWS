@@ -870,280 +870,280 @@ with main_tabs[0]:
             "🌡️ Temperature Extremes"
         ])
 
-# ========================================================
-# TAB 1 — MONTHLY TEMPERATURE
-# ========================================================
-with tabs[0]:
-
-    st.subheader(
-        f"Monthly Mean Temperature {target_year} vs "
-        f"Climatological Mean {YEAR_RANGE_TEXT}"
-    )
-
-    x = np.arange(
-        len(months)
-    )
-
-    fig, ax = plt.subplots(
-        figsize=(
-            FIG_WIDTH,
-            FIG_HEIGHT
-        )
-    )
-
-    bg_color = BG_COLOR
-
-    fig.patch.set_facecolor(
-        bg_color
-    )
-
-    ax.set_facecolor(
-        bg_color
-    )
-
-    # ====================================================
-    # BAR — TARGET YEAR
-    # ====================================================
-
-    ax.bar(
-        x,
-        temperature_target.values,
-        width=0.60,
-        color=st.session_state.bar_colors,
-        edgecolor="black",
-        linewidth=0.8,
-        label=(
-            f"Monthly Mean Temperature {target_year}"
-        )
-    )
-
-    # ====================================================
-    # LINE — CLIMATOLOGICAL MEAN
-    # ====================================================
-
-    ax.plot(
-        x,
-        climatological_monthly_mean.values,
-        color=LINE_COLOR,
-        marker="o",
-        linewidth=2.5,
-        markersize=7,
-        label=(
-            f"Climatological Mean "
-            f"{YEAR_RANGE_TEXT}"
-        )
-    )
-
-    # ----------------------------------------------------
-    # Mean labels
-    # ----------------------------------------------------
-
-    for i, value in enumerate(
-        climatological_monthly_mean.values
-    ):
-
-        if pd.notna(value):
-
-            ax.annotate(
-                f"{value:.1f}",
-                (
-                    i,
-                    value
-                ),
-                xytext=(0, 10),
-                textcoords="offset points",
-                ha="center",
-                fontsize=11,
+        # ========================================================
+        # TAB 1 — MONTHLY TEMPERATURE
+        # ========================================================
+        with tabs[0]:
+        
+            st.subheader(
+                f"Monthly Mean Temperature {target_year} vs "
+                f"Climatological Mean {YEAR_RANGE_TEXT}"
+            )
+        
+            x = np.arange(
+                len(months)
+            )
+        
+            fig, ax = plt.subplots(
+                figsize=(
+                    FIG_WIDTH,
+                    FIG_HEIGHT
+                )
+            )
+        
+            bg_color = BG_COLOR
+        
+            fig.patch.set_facecolor(
+                bg_color
+            )
+        
+            ax.set_facecolor(
+                bg_color
+            )
+        
+            # ====================================================
+            # BAR — TARGET YEAR
+            # ====================================================
+        
+            ax.bar(
+                x,
+                temperature_target.values,
+                width=0.60,
+                color=st.session_state.bar_colors,
+                edgecolor="black",
+                linewidth=0.8,
+                label=(
+                    f"Monthly Mean Temperature {target_year}"
+                )
+            )
+        
+            # ====================================================
+            # LINE — CLIMATOLOGICAL MEAN
+            # ====================================================
+        
+            ax.plot(
+                x,
+                climatological_monthly_mean.values,
+                color=LINE_COLOR,
+                marker="o",
+                linewidth=2.5,
+                markersize=7,
+                label=(
+                    f"Climatological Mean "
+                    f"{YEAR_RANGE_TEXT}"
+                )
+            )
+        
+            # ----------------------------------------------------
+            # Mean labels
+            # ----------------------------------------------------
+        
+            for i, value in enumerate(
+                climatological_monthly_mean.values
+            ):
+        
+                if pd.notna(value):
+        
+                    ax.annotate(
+                        f"{value:.1f}",
+                        (
+                            i,
+                            value
+                        ),
+                        xytext=(0, 10),
+                        textcoords="offset points",
+                        ha="center",
+                        fontsize=11,
+                        fontweight="bold"
+                    )
+        
+            # ----------------------------------------------------
+            # Minimum
+            # ----------------------------------------------------
+        
+            if min_target_month is not None:
+        
+                min_index = months.index(
+                    min_target_month
+                )
+        
+                ax.scatter(
+                    min_index,
+                    min_target_value,
+                    s=50,
+                    color=MIN_COLOR,
+                    edgecolor="black",
+                    linewidth=1,
+                    zorder=5,
+                    label=(
+                        f"Minimum {target_year}: "
+                        f"{min_target_month} "
+                        f"({min_target_value:.1f} °C)"
+                    )
+                )
+        
+            # ----------------------------------------------------
+            # Maximum
+            # ----------------------------------------------------
+        
+            if max_target_month is not None:
+        
+                max_index = months.index(
+                    max_target_month
+                )
+        
+                ax.scatter(
+                    max_index,
+                    max_target_value,
+                    s=50,
+                    color=MAX_COLOR,
+                    edgecolor="black",
+                    linewidth=1,
+                    zorder=5,
+                    label=(
+                        f"Maximum {target_year}: "
+                        f"{max_target_month} "
+                        f"({max_target_value:.1f} °C)"
+                    )
+                )
+        
+            # ====================================================
+            # TITLE
+            # ====================================================
+        
+            ax.set_title(
+                f"{file_name}\n"
+                f"Monthly Mean Temperature {target_year} vs "
+                f"Climatological Mean {YEAR_RANGE_TEXT}",
+                fontsize=16,
                 fontweight="bold"
             )
-
-    # ----------------------------------------------------
-    # Minimum
-    # ----------------------------------------------------
-
-    if min_target_month is not None:
-
-        min_index = months.index(
-            min_target_month
-        )
-
-        ax.scatter(
-            min_index,
-            min_target_value,
-            s=50,
-            color=MIN_COLOR,
-            edgecolor="black",
-            linewidth=1,
-            zorder=5,
-            label=(
-                f"Minimum {target_year}: "
-                f"{min_target_month} "
-                f"({min_target_value:.1f} °C)"
+        
+            ax.set_xlabel(
+                "Month",
+                fontsize=12
             )
-        )
-
-    # ----------------------------------------------------
-    # Maximum
-    # ----------------------------------------------------
-
-    if max_target_month is not None:
-
-        max_index = months.index(
-            max_target_month
-        )
-
-        ax.scatter(
-            max_index,
-            max_target_value,
-            s=50,
-            color=MAX_COLOR,
-            edgecolor="black",
-            linewidth=1,
-            zorder=5,
-            label=(
-                f"Maximum {target_year}: "
-                f"{max_target_month} "
-                f"({max_target_value:.1f} °C)"
+        
+            ax.set_ylabel(
+                "Temperature (°C)",
+                fontsize=12
             )
-        )
-
-    # ====================================================
-    # TITLE
-    # ====================================================
-
-    ax.set_title(
-        f"{file_name}\n"
-        f"Monthly Mean Temperature {target_year} vs "
-        f"Climatological Mean {YEAR_RANGE_TEXT}",
-        fontsize=16,
-        fontweight="bold"
-    )
-
-    ax.set_xlabel(
-        "Month",
-        fontsize=12
-    )
-
-    ax.set_ylabel(
-        "Temperature (°C)",
-        fontsize=12
-    )
-
-    ax.set_xticks(x)
-
-    ax.set_xticklabels(
-        months
-    )
-
-    # ====================================================
-    # AUTO Y-AXIS
-    # ====================================================
-
-    ax.set_ylim(
-        TEMP_MIN,
-        TEMP_MAX
-    )
-
-    ax.grid(
-        True,
-        axis="y",
-        linestyle="--",
-        alpha=0.4
-    )
-
-    ax.legend(
-        bbox_to_anchor=(1.02, 1),
-        loc="upper left",
-        fontsize=9
-    )
-
-    plt.tight_layout()
-
-    st.pyplot(
-        fig,
-        use_container_width=True
-    )
-
-    # ====================================================
-    # DOWNLOAD PLOT
-    # ====================================================
-
-    img_buffer = io.BytesIO()
-
-    fig.savefig(
-        img_buffer,
-        format="png",
-        dpi=300,
-        bbox_inches="tight"
-    )
-
-    img_buffer.seek(0)
-
-    st.download_button(
-        "📥 Download Plot PNG",
-        data=img_buffer.getvalue(),
-        file_name=(
-            f"{selected_station}_monthly_temperature_"
-            f"{target_year}.png"
-        ),
-        mime="image/png",
-        key=(
-            f"download_monthly_temperature_"
-            f"{selected_station}_{target_year}"
-        )
-    )
-
-    # ====================================================
-    # TABLE DATA
-    # ====================================================
-
-    plot_table = pd.DataFrame({
-
-        "Month":
-            months,
-
-        f"Monthly Mean {target_year} (°C)":
-            temperature_target.values,
-
-        f"Climatological Mean {YEAR_RANGE_TEXT} (°C)":
-            climatological_monthly_mean.values,
-
-        "Anomaly (°C)":
-            anomaly_c.values
-
-    })
-
-    plot_table = plot_table.round(
-        2
-    )
-
-    st.dataframe(
-        plot_table,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    csv = (
-        plot_table
-        .to_csv(index=False)
-        .encode("utf-8")
-    )
-
-    st.download_button(
-        "📥 Download Table CSV",
-        data=csv,
-        file_name=(
-            f"{selected_station}_monthly_temperature_"
-            f"{target_year}.csv"
-        ),
-        mime="text/csv",
-        key=(
-            f"download_monthly_temperature_table_"
-            f"{selected_station}_{target_year}"
-        )
-    )
-
-    plt.close(fig)
+        
+            ax.set_xticks(x)
+        
+            ax.set_xticklabels(
+                months
+            )
+        
+            # ====================================================
+            # AUTO Y-AXIS
+            # ====================================================
+        
+            ax.set_ylim(
+                TEMP_MIN,
+                TEMP_MAX
+            )
+        
+            ax.grid(
+                True,
+                axis="y",
+                linestyle="--",
+                alpha=0.4
+            )
+        
+            ax.legend(
+                bbox_to_anchor=(1.02, 1),
+                loc="upper left",
+                fontsize=9
+            )
+        
+            plt.tight_layout()
+        
+            st.pyplot(
+                fig,
+                use_container_width=True
+            )
+        
+            # ====================================================
+            # DOWNLOAD PLOT
+            # ====================================================
+        
+            img_buffer = io.BytesIO()
+        
+            fig.savefig(
+                img_buffer,
+                format="png",
+                dpi=300,
+                bbox_inches="tight"
+            )
+        
+            img_buffer.seek(0)
+        
+            st.download_button(
+                "📥 Download Plot PNG",
+                data=img_buffer.getvalue(),
+                file_name=(
+                    f"{selected_station}_monthly_temperature_"
+                    f"{target_year}.png"
+                ),
+                mime="image/png",
+                key=(
+                    f"download_monthly_temperature_"
+                    f"{selected_station}_{target_year}"
+                )
+            )
+        
+            # ====================================================
+            # TABLE DATA
+            # ====================================================
+        
+            plot_table = pd.DataFrame({
+        
+                "Month":
+                    months,
+        
+                f"Monthly Mean {target_year} (°C)":
+                    temperature_target.values,
+        
+                f"Climatological Mean {YEAR_RANGE_TEXT} (°C)":
+                    climatological_monthly_mean.values,
+        
+                "Anomaly (°C)":
+                    anomaly_c.values
+        
+            })
+        
+            plot_table = plot_table.round(
+                2
+            )
+        
+            st.dataframe(
+                plot_table,
+                use_container_width=True,
+                hide_index=True
+            )
+        
+            csv = (
+                plot_table
+                .to_csv(index=False)
+                .encode("utf-8")
+            )
+        
+            st.download_button(
+                "📥 Download Table CSV",
+                data=csv,
+                file_name=(
+                    f"{selected_station}_monthly_temperature_"
+                    f"{target_year}.csv"
+                ),
+                mime="text/csv",
+                key=(
+                    f"download_monthly_temperature_table_"
+                    f"{selected_station}_{target_year}"
+                )
+            )
+        
+            plt.close(fig)
         # ========================================================
         # TAB 2 — HEATMAP
         # ========================================================
