@@ -131,15 +131,15 @@ st.sidebar.header("⚙️ Analysis Settings")
 
 VALID_MIN = st.sidebar.number_input(
     "Minimum valid temperature (°C)",
-    value=-50.0,
-    step=0.5,
+    value=0.0,
+    step=0.1,
     help="Nilai di bawah had ini dianggap invalid."
 )
 
 VALID_MAX = st.sidebar.number_input(
     "Maximum valid temperature (°C)",
-    value=60.0,
-    step=0.5,
+    value=40.0,
+    step=0.1,
     help="Nilai di atas had ini dianggap invalid."
 )
 
