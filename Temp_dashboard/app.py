@@ -1762,7 +1762,32 @@ with main_tabs[0]:
                     linestyle="--",
                     alpha=0.4
                 )
-
+                
+                # ------------------------------------------------
+                # INDIVIDUAL DATA POINTS - SIDE OF BOXPLOT
+                # ------------------------------------------------
+                for i, values in enumerate(boxplot_data, start=1):
+                
+                    if len(values) > 0:
+                
+                        # Titik diletakkan di sebelah kanan box
+                        x_points = np.random.normal(
+                            i + 0.5,
+                            0.025,
+                            size=len(values)
+                        )
+                
+                        ax.scatter(
+                            x_points,
+                            values,
+                            s=25,
+                            color="black",
+                            alpha=0.55,
+                            edgecolors="white",
+                            linewidth=0.5,
+                            zorder=3
+                        )
+                
                 plt.tight_layout()
                 st.pyplot(
                     fig,
