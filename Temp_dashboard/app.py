@@ -2281,9 +2281,22 @@ with main_tabs[3]:
     # PILIH STESEN
     # ========================================================
 
+    available_stations_extreme = [
+        result["file_name"]
+        for result in successful_results
+    ]
+
+    if not available_stations_extreme:
+
+        st.warning(
+            "⚠️ Tiada stesen dengan data yang berjaya diproses."
+        )
+
+        st.stop()
+
     selected_station_extreme = st.selectbox(
         "🏢 Pilih Stesen",
-        station_names,
+        available_stations_extreme,
         key="extreme_station"
     )
 
