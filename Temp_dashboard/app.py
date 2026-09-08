@@ -726,7 +726,7 @@ st.success(
 
 st.subheader("📌 Overall Analysis Summary")
 
-summary_col1, summary_col2, summary_col3 = st.columns(4)
+summary_col1, summary_col2, summary_col3 = st.columns(3)
 
 with summary_col1:
     st.metric(
