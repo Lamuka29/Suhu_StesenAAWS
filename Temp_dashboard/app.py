@@ -2270,6 +2270,1421 @@ with main_tabs[2]:
     plt.close(fig)
 
 # ============================================================
+# MAIN TAB 4 — SUHU TERTINGGI / EKSTREM
+# ============================================================
+
+with main_tabs[3]:
+
+    st.header("🔥 Analisis Suhu Ekstrem")
+
+    # ========================================================
+    # PILIH STESEN
+    # ========================================================
+
+    selected_station_extreme = st.selectbox(
+        "🏢 Pilih Stesen",
+        station_names,
+        key="extreme_station"
+    )
+
+    # ========================================================
+    # CARI RESULT STESEN
+    # ========================================================
+
+    selected_extreme_result = None
+
+    for result in successful_results:
+
+        if result["file_name"] == selected_station_extreme:
+
+            selected_extreme_result = result
+            break
+
+    if selected_extreme_result is None:
+
+        st.error(
+            "❌ Data stesen tidak dijumpai."
+        )
+
+        st.stop()
+
+    # ========================================================
+    # AMBIL DATA
+    # ========================================================
+
+    all_daily_extreme = (
+        selected_extreme_result["all_daily"].copy()
+    )
+
+    original_file_name_extreme = (
+        selected_extreme_result["original_file_name"]
+    )
+
+    read_errors_extreme = (
+        selected_extreme_result["read_errors"]
+    )
+
+    # ========================================================
+    # FILTER TEMPOH ANALISIS
+    # ========================================================
+
+    period_data_extreme = all_daily_extreme[
+        all_daily_extreme["Year"].between(
+            int(START_YEAR),
+            int(END_YEAR)
+        )
+    ].copy()
+
+    if period_data_extreme.empty:
+
+        st.warning(
+            f"⚠️ Tiada data antara "
+            f"{START_YEAR} hingga {END_YEAR}."
+        )
+
+        st.stop()
+
+    # ========================================================
+    # WIDE → LONG FORMAT
+    # ========================================================
+
+    extreme_long = period_data_extreme.melt(
+        id_vars=[
+            "Year",
+            "hari"
+        ],
+        value_vars=months,
+        var_name="Month",
+        value_name="Temperature"
+    )
+
+    # ========================================================
+    # CONVERT NUMERIC
+    # ========================================================
+
+    extreme_long["Year"] = pd.to_numeric(
+        extreme_long["Year"],
+        errors="coerce"
+    )
+
+    extreme_long["hari"] = pd.to_numeric(
+        extreme_long["hari"],
+        errors="coerce"
+    )
+
+    extreme_long["Temperature"] = pd.to_numeric(
+        extreme_long["Temperature"],
+        errors="coerce"
+    )
+
+    # ========================================================
+    # MONTH NUMBER
+    # ========================================================
+
+    month_number = {
+        month: i + 1
+        for i, month in enumerate(months)
+    }
+
+    extreme_long["Month_Number"] = (
+        extreme_long["Month"].map(month_number)
+    )
+
+    # ========================================================
+    # BUANG DATA TIDAK SAH
+    # ========================================================
+
+    extreme_long = extreme_long.dropna(
+        subset=[
+            "Year",
+            "hari",
+            "Month_Number",
+            "Temperature"
+        ]
+    ).copy()
+
+    # ========================================================
+    # BILANGAN HARI DALAM BULAN
+    # ========================================================
+
+    extreme_long["Days_In_Month"] = extreme_long.apply(
+        lambda row: calendar.monthrange(
+            int(row["Year"]),
+            int(row["Month_Number"])
+        )[1],
+        axis=1
+    )
+
+    # ========================================================
+    # VALID DAY
+    # ========================================================
+
+    extreme_long = extreme_long[
+        (extreme_long["hari"] >= 1) &
+        (
+            extreme_long["hari"]
+            <= extreme_long["Days_In_Month"]
+        )
+    ].copy()
+
+    # ========================================================
+    # CREATE DATE
+    # ========================================================
+
+    extreme_long["Date"] = pd.to_datetime(
+        dict(
+            year=extreme_long["Year"].astype(int),
+            month=extreme_long["Month_Number"].astype(int),
+            day=extreme_long["hari"].astype(int)
+        ),
+        errors="coerce"
+    )
+
+    extreme_long = extreme_long.dropna(
+        subset=["Date"]
+    ).copy()
+
+    # ========================================================
+    # CHECK DATA
+    # ========================================================
+
+    if extreme_long.empty:
+
+        st.warning(
+            "⚠️ Tiada data suhu yang sah untuk dianalisis."
+        )
+
+        st.stop()
+
+    # ========================================================
+    # SUSUN IKUT TARIKH
+    # ========================================================
+
+    extreme_long = (
+        extreme_long
+        .sort_values("Date")
+        .reset_index(drop=True)
+    )
+
+    # ========================================================
+    # REKOD SUHU TERTINGGI
+    # ========================================================
+
+    highest_index = (
+        extreme_long["Temperature"].idxmax()
+    )
+
+    highest_row = (
+        extreme_long.loc[highest_index]
+    )
+
+    highest_temperature = (
+        highest_row["Temperature"]
+    )
+
+    highest_date = (
+        highest_row["Date"]
+    )
+
+    # ========================================================
+    # REKOD SUHU TERENDAH
+    # ========================================================
+
+    lowest_index = (
+        extreme_long["Temperature"].idxmin()
+    )
+
+    lowest_row = (
+        extreme_long.loc[lowest_index]
+    )
+
+    lowest_temperature = (
+        lowest_row["Temperature"]
+    )
+
+    lowest_date = (
+        lowest_row["Date"]
+    )
+
+    # ========================================================
+    # RANGE SUHU
+    # ========================================================
+
+    temperature_range = (
+        highest_temperature
+        - lowest_temperature
+    )
+
+    # ========================================================
+    # SUB TABS
+    # ========================================================
+
+    extreme_tabs = st.tabs([
+        "🌡️ Rekod Ekstrem",
+        "🏆 Top 10 Tertinggi",
+        "❄️ Top 10 Terendah",
+        "📅 Maximum Mengikut Tahun",
+        "📈 Trend Maximum",
+        "🔥 Cuaca Panas"
+    ])
+
+    # ========================================================
+    # TAB 1 — REKOD EKSTREM
+    # ========================================================
+
+    with extreme_tabs[0]:
+
+        st.subheader(
+            "🌡️ Rekod Suhu Ekstrem"
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.metric(
+                "🔥 Suhu Tertinggi",
+                f"{highest_temperature:.1f} °C"
+            )
+
+            st.caption(
+                highest_date.strftime(
+                    "%d/%m/%Y"
+                )
+            )
+
+        with col2:
+
+            st.metric(
+                "❄️ Suhu Terendah",
+                f"{lowest_temperature:.1f} °C"
+            )
+
+            st.caption(
+                lowest_date.strftime(
+                    "%d/%m/%Y"
+                )
+            )
+
+        with col3:
+
+            st.metric(
+                "📏 Julat Suhu",
+                f"{temperature_range:.1f} °C"
+            )
+
+        st.markdown("---")
+
+        col1, col2 = st.columns(2)
+
+        # ----------------------------------------------------
+        # TERTINGGI
+        # ----------------------------------------------------
+
+        with col1:
+
+            st.markdown(
+                "### 🔥 Rekod Tertinggi"
+            )
+
+            highest_info = pd.DataFrame({
+                "Perkara": [
+                    "Suhu",
+                    "Tarikh",
+                    "Tahun",
+                    "Bulan",
+                    "Hari"
+                ],
+                "Nilai": [
+                    f"{highest_temperature:.1f} °C",
+                    highest_date.strftime(
+                        "%d/%m/%Y"
+                    ),
+                    highest_date.year,
+                    highest_date.strftime("%B"),
+                    highest_date.day
+                ]
+            })
+
+            st.dataframe(
+                highest_info,
+                use_container_width=True,
+                hide_index=True
+            )
+
+        # ----------------------------------------------------
+        # TERENDAH
+        # ----------------------------------------------------
+
+        with col2:
+
+            st.markdown(
+                "### ❄️ Rekod Terendah"
+            )
+
+            lowest_info = pd.DataFrame({
+                "Perkara": [
+                    "Suhu",
+                    "Tarikh",
+                    "Tahun",
+                    "Bulan",
+                    "Hari"
+                ],
+                "Nilai": [
+                    f"{lowest_temperature:.1f} °C",
+                    lowest_date.strftime(
+                        "%d/%m/%Y"
+                    ),
+                    lowest_date.year,
+                    lowest_date.strftime("%B"),
+                    lowest_date.day
+                ]
+            })
+
+            st.dataframe(
+                lowest_info,
+                use_container_width=True,
+                hide_index=True
+            )
+
+        # ----------------------------------------------------
+        # DOWNLOAD
+        # ----------------------------------------------------
+
+        extreme_record_download = pd.DataFrame({
+            "Stesen": [
+                selected_station_extreme
+            ],
+            "Suhu Tertinggi (°C)": [
+                highest_temperature
+            ],
+            "Tarikh Tertinggi": [
+                highest_date.strftime(
+                    "%d/%m/%Y"
+                )
+            ],
+            "Suhu Terendah (°C)": [
+                lowest_temperature
+            ],
+            "Tarikh Terendah": [
+                lowest_date.strftime(
+                    "%d/%m/%Y"
+                )
+            ],
+            "Julat Suhu (°C)": [
+                temperature_range
+            ]
+        })
+
+        csv_extreme_record = (
+            extreme_record_download
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "⬇️ Download Rekod Ekstrem",
+            data=csv_extreme_record,
+            file_name=(
+                f"rekod_suhu_ekstrem_"
+                f"{selected_station_extreme}.csv"
+            ),
+            mime="text/csv",
+            key="download_extreme_record"
+        )
+
+    # ========================================================
+    # TAB 2 — TOP 10 TERTINGGI
+    # ========================================================
+
+    with extreme_tabs[1]:
+
+        st.subheader(
+            "🏆 Top 10 Suhu Tertinggi"
+        )
+
+        top10_highest = (
+            extreme_long
+            .nlargest(
+                10,
+                "Temperature"
+            )
+            .copy()
+        )
+
+        top10_highest["Tarikh"] = (
+            top10_highest["Date"]
+            .dt.strftime("%d/%m/%Y")
+        )
+
+        top10_highest_display = (
+            top10_highest[
+                [
+                    "Tarikh",
+                    "Temperature"
+                ]
+            ]
+            .rename(
+                columns={
+                    "Tarikh": "Tarikh",
+                    "Temperature": "Suhu (°C)"
+                }
+            )
+            .reset_index(drop=True)
+        )
+
+        top10_highest_display.index += 1
+
+        st.dataframe(
+            top10_highest_display,
+            use_container_width=True
+        )
+
+        # ----------------------------------------------------
+        # BAR CHART
+        # ----------------------------------------------------
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        x_labels = (
+            top10_highest["Date"]
+            .dt.strftime("%d/%m/%Y")
+        )
+
+        ax.bar(
+            x_labels,
+            top10_highest["Temperature"],
+            edgecolor="black",
+            linewidth=0.8
+        )
+
+        ax.set_title(
+            f"Top 10 Suhu Tertinggi\n"
+            f"{selected_station_extreme}",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel(
+            "Tarikh"
+        )
+
+        ax.set_ylabel(
+            "Temperature (°C)"
+        )
+
+        ax.set_ylim(
+            TEMP_MIN,
+            TEMP_MAX
+        )
+
+        ax.tick_params(
+            axis="x",
+            rotation=45
+        )
+
+        ax.grid(
+            True,
+            axis="y",
+            linestyle="--",
+            alpha=0.4
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        plt.close(fig)
+
+        # ----------------------------------------------------
+        # DOWNLOAD
+        # ----------------------------------------------------
+
+        csv_top10_highest = (
+            top10_highest_display
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "⬇️ Download Top 10 Tertinggi",
+            data=csv_top10_highest,
+            file_name=(
+                f"top10_suhu_tertinggi_"
+                f"{selected_station_extreme}.csv"
+            ),
+            mime="text/csv",
+            key="download_top10_highest"
+        )
+
+    # ========================================================
+    # TAB 3 — TOP 10 TERENDAH
+    # ========================================================
+
+    with extreme_tabs[2]:
+
+        st.subheader(
+            "❄️ Top 10 Suhu Terendah"
+        )
+
+        top10_lowest = (
+            extreme_long
+            .nsmallest(
+                10,
+                "Temperature"
+            )
+            .copy()
+        )
+
+        top10_lowest["Tarikh"] = (
+            top10_lowest["Date"]
+            .dt.strftime("%d/%m/%Y")
+        )
+
+        top10_lowest_display = (
+            top10_lowest[
+                [
+                    "Tarikh",
+                    "Temperature"
+                ]
+            ]
+            .rename(
+                columns={
+                    "Tarikh": "Tarikh",
+                    "Temperature": "Suhu (°C)"
+                }
+            )
+            .reset_index(drop=True)
+        )
+
+        top10_lowest_display.index += 1
+
+        st.dataframe(
+            top10_lowest_display,
+            use_container_width=True
+        )
+
+        # ----------------------------------------------------
+        # BAR CHART
+        # ----------------------------------------------------
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        x_labels = (
+            top10_lowest["Date"]
+            .dt.strftime("%d/%m/%Y")
+        )
+
+        ax.bar(
+            x_labels,
+            top10_lowest["Temperature"],
+            edgecolor="black",
+            linewidth=0.8
+        )
+
+        ax.set_title(
+            f"Top 10 Suhu Terendah\n"
+            f"{selected_station_extreme}",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel(
+            "Tarikh"
+        )
+
+        ax.set_ylabel(
+            "Temperature (°C)"
+        )
+
+        ax.set_ylim(
+            TEMP_MIN,
+            TEMP_MAX
+        )
+
+        ax.tick_params(
+            axis="x",
+            rotation=45
+        )
+
+        ax.grid(
+            True,
+            axis="y",
+            linestyle="--",
+            alpha=0.4
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        plt.close(fig)
+
+        # ----------------------------------------------------
+        # DOWNLOAD
+        # ----------------------------------------------------
+
+        csv_top10_lowest = (
+            top10_lowest_display
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "⬇️ Download Top 10 Terendah",
+            data=csv_top10_lowest,
+            file_name=(
+                f"top10_suhu_terendah_"
+                f"{selected_station_extreme}.csv"
+            ),
+            mime="text/csv",
+            key="download_top10_lowest"
+        )
+
+    # ========================================================
+    # TAB 4 — MAXIMUM MENGIKUT TAHUN
+    # ========================================================
+
+    with extreme_tabs[3]:
+
+        st.subheader(
+            "📅 Suhu Maximum Mengikut Tahun"
+        )
+
+        annual_max = (
+            extreme_long
+            .groupby("Year")["Temperature"]
+            .max()
+            .reset_index()
+        )
+
+        annual_max["Year"] = (
+            annual_max["Year"]
+            .astype(int)
+        )
+
+        annual_max = annual_max.sort_values(
+            "Year"
+        )
+
+        annual_max_display = (
+            annual_max
+            .rename(
+                columns={
+                    "Year": "Tahun",
+                    "Temperature": "Maximum (°C)"
+                }
+            )
+            .reset_index(drop=True)
+        )
+
+        st.dataframe(
+            annual_max_display,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # ----------------------------------------------------
+        # BAR CHART
+        # ----------------------------------------------------
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        ax.bar(
+            annual_max["Year"].astype(str),
+            annual_max["Temperature"],
+            edgecolor="black",
+            linewidth=0.8
+        )
+
+        ax.set_title(
+            f"Maximum Temperature Mengikut Tahun\n"
+            f"{selected_station_extreme}",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel(
+            "Tahun"
+        )
+
+        ax.set_ylabel(
+            "Maximum Temperature (°C)"
+        )
+
+        ax.set_ylim(
+            TEMP_MIN,
+            TEMP_MAX
+        )
+
+        ax.grid(
+            True,
+            axis="y",
+            linestyle="--",
+            alpha=0.4
+        )
+
+        plt.xticks(
+            rotation=45
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        plt.close(fig)
+
+        # ----------------------------------------------------
+        # DOWNLOAD
+        # ----------------------------------------------------
+
+        csv_annual_max = (
+            annual_max_display
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "⬇️ Download Maximum Mengikut Tahun",
+            data=csv_annual_max,
+            file_name=(
+                f"maximum_suhu_tahunan_"
+                f"{selected_station_extreme}.csv"
+            ),
+            mime="text/csv",
+            key="download_annual_max"
+        )
+
+    # ========================================================
+    # TAB 5 — TREND MAXIMUM
+    # ========================================================
+
+    with extreme_tabs[4]:
+
+        st.subheader(
+            "📈 Trend Maximum Temperature"
+        )
+
+        trend_data = annual_max.copy()
+
+        if len(trend_data) >= 2:
+
+            x_year = (
+                trend_data["Year"]
+                .astype(float)
+                .values
+            )
+
+            y_temp = (
+                trend_data["Temperature"]
+                .astype(float)
+                .values
+            )
+
+            slope, intercept = np.polyfit(
+                x_year,
+                y_temp,
+                1
+            )
+
+            trend_line = (
+                slope * x_year
+                + intercept
+            )
+
+            # ------------------------------------------------
+            # CHART
+            # ------------------------------------------------
+
+            fig, ax = plt.subplots(
+                figsize=(FIG_WIDTH, FIG_HEIGHT)
+            )
+
+            ax.plot(
+                x_year,
+                y_temp,
+                marker="o",
+                linewidth=2,
+                markersize=7,
+                label="Annual Maximum"
+            )
+
+            ax.plot(
+                x_year,
+                trend_line,
+                linestyle="--",
+                linewidth=2,
+                label="Linear Trend"
+            )
+
+            ax.set_title(
+                f"Trend Maximum Temperature\n"
+                f"{selected_station_extreme}",
+                fontsize=16,
+                fontweight="bold"
+            )
+
+            ax.set_xlabel(
+                "Year"
+            )
+
+            ax.set_ylabel(
+                "Maximum Temperature (°C)"
+            )
+
+            ax.set_ylim(
+                TEMP_MIN,
+                TEMP_MAX
+            )
+
+            ax.grid(
+                True,
+                axis="y",
+                linestyle="--",
+                alpha=0.4
+            )
+
+            ax.legend()
+
+            plt.tight_layout()
+
+            st.pyplot(
+                fig,
+                use_container_width=True
+            )
+
+            plt.close(fig)
+
+            # ------------------------------------------------
+            # TREND INFORMATION
+            # ------------------------------------------------
+
+            trend_per_decade = (
+                slope * 10
+            )
+
+            first_year = (
+                int(trend_data["Year"].iloc[0])
+            )
+
+            last_year = (
+                int(trend_data["Year"].iloc[-1])
+            )
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+
+                st.metric(
+                    "Trend / Tahun",
+                    f"{slope:.3f} °C"
+                )
+
+            with col2:
+
+                st.metric(
+                    "Trend / Dekad",
+                    f"{trend_per_decade:.2f} °C"
+                )
+
+            with col3:
+
+                if slope > 0:
+
+                    trend_status = "📈 Meningkat"
+
+                elif slope < 0:
+
+                    trend_status = "📉 Menurun"
+
+                else:
+
+                    trend_status = "➡️ Tiada Perubahan"
+
+                st.metric(
+                    "Trend",
+                    trend_status
+                )
+
+            # ------------------------------------------------
+            # TAHUN MAXIMUM PALING TINGGI
+            # ------------------------------------------------
+
+            annual_highest_idx = (
+                trend_data["Temperature"].idxmax()
+            )
+
+            annual_lowest_idx = (
+                trend_data["Temperature"].idxmin()
+            )
+
+            annual_highest_year = int(
+                trend_data.loc[
+                    annual_highest_idx,
+                    "Year"
+                ]
+            )
+
+            annual_highest_value = (
+                trend_data.loc[
+                    annual_highest_idx,
+                    "Temperature"
+                ]
+            )
+
+            annual_lowest_year = int(
+                trend_data.loc[
+                    annual_lowest_idx,
+                    "Year"
+                ]
+            )
+
+            annual_lowest_value = (
+                trend_data.loc[
+                    annual_lowest_idx,
+                    "Temperature"
+                ]
+            )
+
+            st.markdown("---")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                st.info(
+                    f"🔥 **Maximum Tahunan Tertinggi**\n\n"
+                    f"{annual_highest_year}: "
+                    f"{annual_highest_value:.1f} °C"
+                )
+
+            with col2:
+
+                st.info(
+                    f"❄️ **Maximum Tahunan Terendah**\n\n"
+                    f"{annual_lowest_year}: "
+                    f"{annual_lowest_value:.1f} °C"
+                )
+
+        else:
+
+            st.warning(
+                "⚠️ Tidak cukup data untuk "
+                "mengira trend."
+            )
+
+    # ========================================================
+    # TAB 6 — CUACA PANAS
+    # ========================================================
+
+    with extreme_tabs[5]:
+
+        st.subheader(
+            f"🔥 Analisis Cuaca Panas "
+            f"({START_YEAR}–{END_YEAR})"
+        )
+
+        st.caption(
+            f"Stesen: {selected_station_extreme}"
+        )
+
+        st.info(
+            "Kejadian cuaca panas dikira apabila "
+            "suhu mencapai tahap tertentu selama "
+            "sekurang-kurangnya 3 hari berturut-turut."
+        )
+
+        # ====================================================
+        # KRITERIA
+        # ====================================================
+
+        st.markdown(
+            """
+            ### 🌡️ Kriteria Tahap Cuaca Panas
+
+            | Tahap | Kategori | Suhu | Tempoh |
+            |---|---|---|---|
+            | 🟡 Tahap 1 | Berjaga-jaga | 35 hingga <37 °C | ≥ 3 hari berturut-turut |
+            | 🟠 Tahap 2 | Gelombang Haba | 37 hingga 40 °C | ≥ 3 hari berturut-turut |
+            | 🔴 Tahap 3 | Bahaya / Gelombang Haba Ekstrem | >40 °C | ≥ 3 hari berturut-turut |
+            """
+        )
+
+        # ====================================================
+        # DATA HARIAN
+        # ====================================================
+
+        heatwave_data = extreme_long[
+            [
+                "Date",
+                "Temperature"
+            ]
+        ].copy()
+
+        heatwave_data = (
+            heatwave_data
+            .sort_values("Date")
+            .drop_duplicates(
+                subset=["Date"],
+                keep="first"
+            )
+            .reset_index(drop=True)
+        )
+
+        # ====================================================
+        # CLASSIFY LEVEL
+        # ====================================================
+
+        def get_heat_level(temp):
+
+            if pd.isna(temp):
+                return "Missing"
+
+            if temp > 40:
+                return "Tahap 3"
+
+            elif temp >= 37:
+                return "Tahap 2"
+
+            elif temp >= 35:
+                return "Tahap 1"
+
+            return "Normal"
+
+        heatwave_data["Tahap"] = (
+            heatwave_data["Temperature"]
+            .apply(get_heat_level)
+        )
+
+        # ====================================================
+        # DETECT CONSECUTIVE EVENTS
+        # ====================================================
+
+        detected_events = []
+
+        current_level = None
+        start_date = None
+        previous_date = None
+
+        for _, row in heatwave_data.iterrows():
+
+            current_date = row["Date"]
+            level = row["Tahap"]
+
+            # ------------------------------------------------
+            # NORMAL / MISSING
+            # ------------------------------------------------
+
+            if level in [
+                "Normal",
+                "Missing"
+            ]:
+
+                if (
+                    current_level is not None
+                    and start_date is not None
+                    and previous_date is not None
+                ):
+
+                    duration = (
+                        previous_date
+                        - start_date
+                    ).days + 1
+
+                    if duration >= 3:
+
+                        detected_events.append({
+                            "Tahap": current_level,
+                            "Tarikh Mula": start_date,
+                            "Tarikh Tamat": previous_date,
+                            "Bilangan Hari": duration
+                        })
+
+                current_level = None
+                start_date = None
+
+            # ------------------------------------------------
+            # HOT
+            # ------------------------------------------------
+
+            else:
+
+                if current_level is None:
+
+                    current_level = level
+                    start_date = current_date
+
+                elif level == current_level:
+
+                    pass
+
+                else:
+
+                    if (
+                        start_date is not None
+                        and previous_date is not None
+                    ):
+
+                        duration = (
+                            previous_date
+                            - start_date
+                        ).days + 1
+
+                        if duration >= 3:
+
+                            detected_events.append({
+                                "Tahap": current_level,
+                                "Tarikh Mula": start_date,
+                                "Tarikh Tamat": previous_date,
+                                "Bilangan Hari": duration
+                            })
+
+                    current_level = level
+                    start_date = current_date
+
+            previous_date = current_date
+
+        # ====================================================
+        # CHECK LAST EVENT
+        # ====================================================
+
+        if (
+            current_level is not None
+            and start_date is not None
+            and previous_date is not None
+        ):
+
+            duration = (
+                previous_date
+                - start_date
+            ).days + 1
+
+            if duration >= 3:
+
+                detected_events.append({
+                    "Tahap": current_level,
+                    "Tarikh Mula": start_date,
+                    "Tarikh Tamat": previous_date,
+                    "Bilangan Hari": duration
+                })
+
+        # ====================================================
+        # RESULT
+        # ====================================================
+
+        if not detected_events:
+
+            st.success(
+                "✅ Tiada kejadian cuaca panas "
+                "selama sekurang-kurangnya 3 hari "
+                "berturut-turut dikesan."
+            )
+
+        else:
+
+            heatwave_df = pd.DataFrame(
+                detected_events
+            )
+
+            # ------------------------------------------------
+            # METRICS
+            # ------------------------------------------------
+
+            total_events = len(
+                heatwave_df
+            )
+
+            stage1_count = (
+                heatwave_df["Tahap"]
+                .eq("Tahap 1")
+                .sum()
+            )
+
+            stage2_count = (
+                heatwave_df["Tahap"]
+                .eq("Tahap 2")
+                .sum()
+            )
+
+            stage3_count = (
+                heatwave_df["Tahap"]
+                .eq("Tahap 3")
+                .sum()
+            )
+
+            col1, col2, col3, col4 = (
+                st.columns(4)
+            )
+
+            with col1:
+
+                st.metric(
+                    "🔥 Jumlah Kejadian",
+                    total_events
+                )
+
+            with col2:
+
+                st.metric(
+                    "🟡 Tahap 1",
+                    stage1_count
+                )
+
+            with col3:
+
+                st.metric(
+                    "🟠 Tahap 2",
+                    stage2_count
+                )
+
+            with col4:
+
+                st.metric(
+                    "🔴 Tahap 3",
+                    stage3_count
+                )
+
+            st.markdown("---")
+
+            # ------------------------------------------------
+            # FORMAT TARIKH
+            # ------------------------------------------------
+
+            display_heatwave = (
+                heatwave_df.copy()
+            )
+
+            display_heatwave[
+                "Tarikh Mula"
+            ] = (
+                display_heatwave[
+                    "Tarikh Mula"
+                ]
+                .dt.strftime("%d/%m/%Y")
+            )
+
+            display_heatwave[
+                "Tarikh Tamat"
+            ] = (
+                display_heatwave[
+                    "Tarikh Tamat"
+                ]
+                .dt.strftime("%d/%m/%Y")
+            )
+
+            # ------------------------------------------------
+            # TABLE
+            # ------------------------------------------------
+
+            st.subheader(
+                "📋 Rekod Kejadian Cuaca Panas"
+            )
+
+            st.dataframe(
+                display_heatwave,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # ------------------------------------------------
+            # CHART
+            # ------------------------------------------------
+
+            st.subheader(
+                "📊 Bilangan Kejadian Mengikut Tahap"
+            )
+
+            stage_counts = pd.DataFrame({
+                "Tahap": [
+                    "Tahap 1",
+                    "Tahap 2",
+                    "Tahap 3"
+                ],
+                "Bilangan": [
+                    stage1_count,
+                    stage2_count,
+                    stage3_count
+                ]
+            })
+
+            fig, ax = plt.subplots(
+                figsize=(10, 6)
+            )
+
+            ax.bar(
+                stage_counts["Tahap"],
+                stage_counts["Bilangan"],
+                edgecolor="black",
+                linewidth=0.8
+            )
+
+            ax.set_title(
+                "Bilangan Kejadian Cuaca Panas",
+                fontsize=15,
+                fontweight="bold"
+            )
+
+            ax.set_xlabel(
+                "Tahap Cuaca Panas"
+            )
+
+            ax.set_ylabel(
+                "Bilangan Kejadian"
+            )
+
+            ax.grid(
+                True,
+                axis="y",
+                linestyle="--",
+                alpha=0.4
+            )
+
+            plt.tight_layout()
+
+            st.pyplot(
+                fig,
+                use_container_width=True
+            )
+
+            plt.close(fig)
+
+            # ------------------------------------------------
+            # DOWNLOAD
+            # ------------------------------------------------
+
+            csv_heatwave = (
+                display_heatwave
+                .to_csv(index=False)
+                .encode("utf-8")
+            )
+
+            st.download_button(
+                "⬇️ Download Rekod Cuaca Panas",
+                data=csv_heatwave,
+                file_name=(
+                    f"rekod_cuaca_panas_"
+                    f"{selected_station_extreme}.csv"
+                ),
+                mime="text/csv",
+                key="download_heatwave"
+            )
+
+# ============================================================
 # FOOTER
 # ============================================================
 st.divider()
