@@ -1432,9 +1432,9 @@ with main_tabs[0]:
                 (
                     "steelblue"
                     if pd.notna(value) and value >= 0
-                    else "darkorange"
-                    if pd.notna(value)
                     else "lightgray"
+                    if pd.notna(value)
+                    else "darkorange"
                 )
                 for value in anomaly_c.values
             ]
