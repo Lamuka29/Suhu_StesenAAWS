@@ -622,6 +622,79 @@ display_results = [
 ]
 
 # ============================================================
+# GLOBAL AUTO Y-AXIS — TEMPERATURE
+# ============================================================
+
+global_max_target = 0
+global_max_mean = 0
+
+max_target_file = None
+max_target_month = None
+
+max_mean_file = None
+max_mean_month = None
+
+
+for result in successful_results:
+
+    # --------------------------------------------------------
+    # TARGET YEAR TEMPERATURE
+    # --------------------------------------------------------
+    temperature_target = result["temperature_target"]
+
+    if temperature_target.notna().any():
+
+        local_max = temperature_target.max()
+
+        if local_max > global_max_target:
+
+            global_max_target = local_max
+
+            max_target_file = result["original_file_name"]
+
+            max_target_month = temperature_target.idxmax()
+
+
+    # --------------------------------------------------------
+    # CLIMATOLOGICAL MONTHLY MEAN
+    # --------------------------------------------------------
+    climatological_monthly_mean = result["climatological_monthly_mean"]
+
+    if climatological_monthly_mean.notna().any():
+
+        local_max = climatological_monthly_mean.max()
+
+        if local_max > global_max_mean:
+
+            global_max_mean = local_max
+
+            max_mean_file = result["original_file_name"]
+
+            max_mean_month = climatological_monthly_mean.idxmax()
+
+
+# ------------------------------------------------------------
+# DETERMINE GLOBAL MAXIMUM
+# ------------------------------------------------------------
+
+selected_max = max(
+    global_max_target,
+    global_max_mean
+)
+
+# ------------------------------------------------------------
+# AUTO Y-AXIS MAXIMUM
+# ------------------------------------------------------------
+
+if selected_max > 0:
+
+    TEMP_MAX = (int(selected_max / 5) + 1) * 5
+
+else:
+
+    TEMP_MAX = 40
+
+# ============================================================
 # GLOBAL SUMMARY
 # ============================================================
 st.success(
