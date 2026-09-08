@@ -164,31 +164,82 @@ MAX_CONSECUTIVE_MISSING = st.sidebar.number_input(
 # ============================================================
 st.sidebar.header("🎨 Plot Settings")
 
+# ============================================================
+# BACKGROUND
+# ============================================================
 BG_COLOR = st.sidebar.color_picker(
     "Background Graf",
     "#FFFFFF"
 )
 
+# ============================================================
+# DEFAULT BAR COLORS — MONTHLY TEMPERATURE
+# ============================================================
+default_colors = [
+    "#4682B4",  # Jan
+    "#87CEEB",  # Feb
+    "#3CB371",  # Mar
+    "#32CD32",  # Apr
+    "#FFD700",  # May
+    "#FFA500",  # Jun
+    "#FF7F50",  # Jul
+    "#FF6347",  # Aug
+    "#9370DB",  # Sep
+    "#DA70D6",  # Oct
+    "#6A5ACD",  # Nov
+    "#008080"   # Dec
+]
+
+# ============================================================
+# SESSION STATE
+# ============================================================
+if "bar_colors" not in st.session_state:
+    st.session_state.bar_colors = default_colors.copy()
+
+# ============================================================
+# SELECT MONTH BAR COLOUR
+# ============================================================
+selected_month = st.sidebar.selectbox(
+    "📊 Select Month Bar Colour",
+    months,
+    key="temperature_bar_month"
+)
+
+selected_index = months.index(
+    selected_month
+)
+
+st.session_state.bar_colors[
+    selected_index
+] = st.sidebar.color_picker(
+    f"{selected_month} Bar Colour",
+    st.session_state.bar_colors[selected_index],
+    key=f"bar_color_{selected_month}"
+)
+
+# ============================================================
+# MEAN LINE
+# ============================================================
 LINE_COLOR = st.sidebar.color_picker(
     "Mean Line",
     "#000000"
 )
 
+# ============================================================
+# MINIMUM
+# ============================================================
 MIN_COLOR = st.sidebar.color_picker(
     "Minimum",
     "#008000"
 )
 
+# ============================================================
+# MAXIMUM
+# ============================================================
 MAX_COLOR = st.sidebar.color_picker(
     "Maximum",
     "#FF0000"
 )
-
-BAR_COLOR = st.sidebar.color_picker(
-    "Monthly Temperature Bar",
-    "#4682B4"
-)
-
 # ============================================================
 # FUNCTION: MAX CONSECUTIVE MISSING
 # ============================================================
