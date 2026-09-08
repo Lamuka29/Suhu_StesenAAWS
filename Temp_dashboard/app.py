@@ -695,6 +695,28 @@ else:
     TEMP_MAX = 40
 
 # ============================================================
+# GLOBAL AUTO Y-AXIS INFORMATION
+# ============================================================
+
+with st.expander(
+    "🔎 Auto Y-Axis Information"
+):
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write("**Maximum Target-Year Monthly Mean**")
+        st.write(f"Value: {global_max_target:.2f} °C")
+        st.write(f"File: {max_target_file}")
+        st.write(f"Month: {max_target_month}")
+
+    with col2:
+        st.write("**Maximum Climatological Monthly Mean**")
+        st.write(f"Value: {global_max_mean:.2f} °C")
+        st.write(f"File: {max_mean_file}")
+        st.write(f"Month: {max_mean_month}")
+
+# ============================================================
 # GLOBAL SUMMARY
 # ============================================================
 st.success(
