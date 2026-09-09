@@ -2764,7 +2764,7 @@ with main_tabs[1]:
     # TAB 3 — ANOMALY
     # ========================================================
 
-    with all_year_tabs[2]:
+    with all_year_tabs[1]:
 
         st.subheader(
             "📊 Temperature Anomaly — All Years"
@@ -2924,7 +2924,7 @@ with main_tabs[1]:
     # TAB 4 — STATISTICS
     # ========================================================
 
-    with all_year_tabs[3]:
+    with all_year_tabs[2]:
 
         st.subheader(
             "📋 Temperature Statistics — All Years"
@@ -3072,7 +3072,7 @@ with main_tabs[1]:
     # TAB 5 — BOXPLOT
     # ========================================================
 
-    with all_year_tabs[4]:
+    with all_year_tabs[3]:
 
         st.subheader(
             "📦 Boxplot Temperature Mengikut Bulan"
