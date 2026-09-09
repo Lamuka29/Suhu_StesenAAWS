@@ -1670,45 +1670,49 @@ with main_tabs[0]:
         # TAB 5 — BOXPLOT
         # ========================================================
         with tabs[4]:
-
+        
             st.subheader(
                 f"Daily Temperature Distribution by Month - "
                 f"{target_year}"
             )
-
+        
             boxplot_data = []
-
+        
             for month in months:
-
+        
                 month_index = months.index(month) + 1
-
+        
                 days_expected = calendar.monthrange(
                     target_year,
                     month_index
                 )[1]
-
+        
                 values = (
                     target_data[month]
                     .iloc[:days_expected]
                     .dropna()
                 )
-
+        
                 boxplot_data.append(
                     values.tolist()
                 )
-
+        
             if any(
                 len(values) > 0
                 for values in boxplot_data
             ):
-
+        
+                # ====================================================
+                # BOXPLOT
+                # ====================================================
+        
                 fig, ax = plt.subplots(
                     figsize=(14, 8)
                 )
-
+        
                 fig.patch.set_facecolor(BG_COLOR)
                 ax.set_facecolor(BG_COLOR)
-
+        
                 bp = ax.boxplot(
                     boxplot_data,
                     tick_labels=months,
@@ -1716,67 +1720,61 @@ with main_tabs[0]:
                     showmeans=True,
                     showfliers=False
                 )
-
+        
+                # ----------------------------------------------------
+                # BOX COLOUR
+                # ----------------------------------------------------
+        
                 for box in bp["boxes"]:
+        
                     box.set(
                         facecolor="#87CEEB",
                         edgecolor="black",
                         linewidth=1
                     )
-
+        
+                # ----------------------------------------------------
+                # MEDIAN
+                # ----------------------------------------------------
+        
                 for median in bp["medians"]:
+        
                     median.set(
                         color="red",
                         linewidth=2
                     )
-
+        
+                # ----------------------------------------------------
+                # MEAN
+                # ----------------------------------------------------
+        
                 for mean in bp["means"]:
+        
                     mean.set(
                         marker="o",
                         markerfacecolor="black",
                         markeredgecolor="black",
                         markersize=5
                     )
-
-                ax.set_title(
-                    f"{file_name}\n"
-                    f"Daily Temperature Distribution by Month - "
-                    f"{target_year}",
-                    fontsize=16,
-                    fontweight="bold"
-                )
-
-                ax.set_xlabel(
-                    "Month",
-                    fontsize=12
-                )
-
-                ax.set_ylabel(
-                    "Temperature (°C)",
-                    fontsize=12
-                )
-
-                ax.grid(
-                    True,
-                    axis="y",
-                    linestyle="--",
-                    alpha=0.4
-                )
-                
-                # ------------------------------------------------
-                # INDIVIDUAL DATA POINTS - SIDE OF BOXPLOT
-                # ------------------------------------------------
-                for i, values in enumerate(boxplot_data, start=1):
-                
+        
+                # ----------------------------------------------------
+                # INDIVIDUAL DATA POINTS
+                # SIDE OF BOXPLOT
+                # ----------------------------------------------------
+        
+                for i, values in enumerate(
+                    boxplot_data,
+                    start=1
+                ):
+        
                     if len(values) > 0:
-                
-                        # Titik diletakkan di sebelah kanan box
+        
                         x_points = np.random.normal(
                             i + 0.5,
                             0.025,
                             size=len(values)
                         )
-                
+        
                         ax.scatter(
                             x_points,
                             values,
@@ -1787,24 +1785,58 @@ with main_tabs[0]:
                             linewidth=0.5,
                             zorder=3
                         )
-                
+        
+                # ====================================================
+                # TITLE
+                # ====================================================
+        
+                ax.set_title(
+                    f"{file_name}\n"
+                    f"Daily Temperature Distribution by Month - "
+                    f"{target_year}",
+                    fontsize=16,
+                    fontweight="bold"
+                )
+        
+                ax.set_xlabel(
+                    "Month",
+                    fontsize=12
+                )
+        
+                ax.set_ylabel(
+                    "Temperature (°C)",
+                    fontsize=12
+                )
+        
+                ax.grid(
+                    True,
+                    axis="y",
+                    linestyle="--",
+                    alpha=0.4
+                )
+        
                 plt.tight_layout()
+        
                 st.pyplot(
                     fig,
                     use_container_width=True
                 )
-
+        
+                # ====================================================
+                # DOWNLOAD BOXPLOT PNG
+                # ====================================================
+        
                 img_buffer = io.BytesIO()
-
+        
                 fig.savefig(
                     img_buffer,
                     format="png",
                     dpi=300,
                     bbox_inches="tight"
                 )
-
+        
                 img_buffer.seek(0)
-
+        
                 st.download_button(
                     "📥 Download Boxplot PNG",
                     data=img_buffer.getvalue(),
@@ -1818,10 +1850,116 @@ with main_tabs[0]:
                         f"{selected_station}_{target_year}"
                     )
                 )
-
+        
                 plt.close(fig)
-
+        
+                # ====================================================
+                # SUMMARY STATISTICS TABLE
+                # ====================================================
+        
+                summary_rows = []
+        
+                for month, values in zip(
+                    months,
+                    boxplot_data
+                ):
+        
+                    series = pd.Series(
+                        values,
+                        dtype="float64"
+                    ).dropna()
+        
+                    if len(series) > 0:
+        
+                        summary_rows.append({
+                            "Month": month,
+                            "Count": int(series.count()),
+                            "Mean (°C)": series.mean(),
+                            "Std Dev (°C)": series.std(),
+                            "Minimum (°C)": series.min(),
+                            "Q1 (°C)": series.quantile(0.25),
+                            "Median (°C)": series.median(),
+                            "Q3 (°C)": series.quantile(0.75),
+                            "Maximum (°C)": series.max()
+                        })
+        
+                    else:
+        
+                        summary_rows.append({
+                            "Month": month,
+                            "Count": 0,
+                            "Mean (°C)": np.nan,
+                            "Std Dev (°C)": np.nan,
+                            "Minimum (°C)": np.nan,
+                            "Q1 (°C)": np.nan,
+                            "Median (°C)": np.nan,
+                            "Q3 (°C)": np.nan,
+                            "Maximum (°C)": np.nan
+                        })
+        
+                boxplot_summary = pd.DataFrame(
+                    summary_rows
+                )
+        
+                # ----------------------------------------------------
+                # ROUND VALUES
+                # ----------------------------------------------------
+        
+                numeric_columns = [
+                    "Mean (°C)",
+                    "Std Dev (°C)",
+                    "Minimum (°C)",
+                    "Q1 (°C)",
+                    "Median (°C)",
+                    "Q3 (°C)",
+                    "Maximum (°C)"
+                ]
+        
+                boxplot_summary[numeric_columns] = (
+                    boxplot_summary[numeric_columns]
+                    .round(2)
+                )
+        
+                # ====================================================
+                # DISPLAY TABLE
+                # ====================================================
+        
+                st.markdown(
+                    f"### 📋 Temperature Statistics — {target_year}"
+                )
+        
+                st.dataframe(
+                    boxplot_summary,
+                    use_container_width=True,
+                    hide_index=True
+                )
+        
+                # ====================================================
+                # DOWNLOAD TABLE CSV
+                # ====================================================
+        
+                csv_boxplot_summary = (
+                    boxplot_summary
+                    .to_csv(index=False)
+                    .encode("utf-8")
+                )
+        
+                st.download_button(
+                    "⬇️ Download Temperature Statistics CSV",
+                    data=csv_boxplot_summary,
+                    file_name=(
+                        f"{selected_station}_temperature_statistics_"
+                        f"{target_year}.csv"
+                    ),
+                    mime="text/csv",
+                    key=(
+                        f"download_temperature_statistics_"
+                        f"{selected_station}_{target_year}"
+                    )
+                )
+        
             else:
+        
                 st.warning(
                     "Tiada data suhu sah untuk menghasilkan boxplot."
                 )
