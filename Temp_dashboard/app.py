@@ -3130,123 +3130,184 @@ with main_tabs[3]:
             key="download_annual_max"
         )
         
-    # ========================================================
-    # TAB 5 — CUACA PANAS
-    # ========================================================
-
-    with extreme_tabs[4]:
-
-        st.subheader(
-            f"🔥 Analisis Cuaca Panas "
-            f"({START_YEAR}–{END_YEAR})"
-        )
-
-        st.caption(
-            f"Stesen: {selected_station_extreme}"
-        )
-
-        st.info(
-            "Kejadian cuaca panas dikira apabila "
-            "suhu mencapai tahap tertentu selama "
-            "sekurang-kurangnya 3 hari berturut-turut."
-        )
-
-        # ====================================================
-        # KRITERIA
-        # ====================================================
-
-        st.markdown(
-            """
-            ### 🌡️ Kriteria Tahap Cuaca Panas
-
-            | Tahap | Kategori | Suhu | Tempoh |
-            |---|---|---|---|
-            | 🟡 Tahap 1 | Berjaga-jaga | 35 hingga <37 °C | ≥ 3 hari berturut-turut |
-            | 🟠 Tahap 2 | Gelombang Haba | 37 hingga 40 °C | ≥ 3 hari berturut-turut |
-            | 🔴 Tahap 3 | Bahaya / Gelombang Haba Ekstrem | >40 °C | ≥ 3 hari berturut-turut |
-            """
-        )
-
-        # ====================================================
-        # DATA HARIAN
-        # ====================================================
-
-        heatwave_data = extreme_long[
-            [
-                "Date",
-                "Temperature"
-            ]
-        ].copy()
-
-        heatwave_data = (
-            heatwave_data
-            .sort_values("Date")
-            .drop_duplicates(
-                subset=["Date"],
-                keep="first"
+        # ========================================================
+        # TAB 5 — CUACA PANAS MENGIKUT TAHUN
+        # ========================================================
+        
+        with extreme_tabs[4]:
+        
+            st.subheader(
+                f"🔥 Analisis Cuaca Panas Mengikut Tahun "
+                f"({START_YEAR}–{END_YEAR})"
             )
-            .reset_index(drop=True)
-        )
-
-        # ====================================================
-        # CLASSIFY LEVEL
-        # ====================================================
-
-        def get_heat_level(temp):
-
-            if pd.isna(temp):
-                return "Missing"
-
-            if temp > 40:
-                return "Tahap 3"
-
-            elif temp >= 37:
-                return "Tahap 2"
-
-            elif temp >= 35:
-                return "Tahap 1"
-
-            return "Normal"
-
-        heatwave_data["Tahap"] = (
-            heatwave_data["Temperature"]
-            .apply(get_heat_level)
-        )
         
-        # ====================================================
-        # DETECT CONSECUTIVE HOT DAYS
-        # ====================================================
+            st.caption(
+                f"Stesen: {selected_station_extreme}"
+            )
         
-        detected_events = []
+            st.info(
+                "Kejadian cuaca panas dikira apabila suhu "
+                "mencapai sekurang-kurangnya 35 °C selama "
+                "3 hari berturut-turut."
+            )
         
-        current_event = []
-        previous_date = None
+            # ====================================================
+            # KRITERIA
+            # ====================================================
         
-        for _, row in heatwave_data.iterrows():
+            st.markdown(
+                """
+                ### 🌡️ Kriteria Tahap Cuaca Panas
         
-            current_date = row["Date"]
-            temperature = row["Temperature"]
+                | Tahap | Kategori | Suhu | Tempoh |
+                |---|---|---|---|
+                | 🟡 Tahap 1 | Berjaga-jaga | 35 hingga <37 °C | ≥ 3 hari berturut-turut |
+                | 🟠 Tahap 2 | Gelombang Haba | 37 hingga 40 °C | ≥ 3 hari berturut-turut |
+                | 🔴 Tahap 3 | Bahaya / Gelombang Haba Ekstrem | >40 °C | ≥ 3 hari berturut-turut |
+                """
+            )
         
-            # ------------------------------------------------
-            # SUHU PANAS
-            # ------------------------------------------------
+            # ====================================================
+            # DATA HARIAN
+            # ====================================================
         
-            if temperature >= 35:
+            heatwave_data = extreme_long[
+                [
+                    "Date",
+                    "Year",
+                    "Temperature"
+                ]
+            ].copy()
         
-                # Hari pertama event
-                if not current_event:
+            heatwave_data["Temperature"] = pd.to_numeric(
+                heatwave_data["Temperature"],
+                errors="coerce"
+            )
         
-                    current_event = [row]
+            heatwave_data["Year"] = pd.to_numeric(
+                heatwave_data["Year"],
+                errors="coerce"
+            )
         
-                # Sambung event jika hari berturut-turut
-                elif (
-                    previous_date is not None
-                    and (current_date - previous_date).days == 1
-                ):
+            heatwave_data = (
+                heatwave_data
+                .dropna(
+                    subset=[
+                        "Date",
+                        "Year",
+                        "Temperature"
+                    ]
+                )
+                .sort_values("Date")
+                .drop_duplicates(
+                    subset=["Date"],
+                    keep="first"
+                )
+                .reset_index(drop=True)
+            )
         
-                    current_event.append(row)
+            # ====================================================
+            # CLASSIFY TEMPERATURE LEVEL
+            # ====================================================
         
-                # Kalau ada gap tarikh → tutup event lama
+            def get_heat_level(temp):
+        
+                if pd.isna(temp):
+                    return "Missing"
+        
+                if temp > 40:
+                    return "Tahap 3"
+        
+                elif temp >= 37:
+                    return "Tahap 2"
+        
+                elif temp >= 35:
+                    return "Tahap 1"
+        
+                return "Normal"
+        
+            heatwave_data["Tahap"] = (
+                heatwave_data["Temperature"]
+                .apply(get_heat_level)
+            )
+        
+            # ====================================================
+            # DETECT CONSECUTIVE HOT EVENTS
+            # ====================================================
+        
+            detected_events = []
+        
+            current_event = []
+            previous_date = None
+        
+            for _, row in heatwave_data.iterrows():
+        
+                current_date = row["Date"]
+                temperature = row["Temperature"]
+        
+                # ------------------------------------------------
+                # SUHU >= 35°C
+                # ------------------------------------------------
+        
+                if temperature >= 35:
+        
+                    # Event baru
+                    if not current_event:
+        
+                        current_event = [row]
+        
+                    # Hari berturut-turut
+                    elif (
+                        previous_date is not None
+                        and (current_date - previous_date).days == 1
+                    ):
+        
+                        current_event.append(row)
+        
+                    # Ada gap tarikh
+                    else:
+        
+                        if len(current_event) >= 3:
+        
+                            event_df = pd.DataFrame(
+                                current_event
+                            )
+        
+                            max_temp = event_df[
+                                "Temperature"
+                            ].max()
+        
+                            # Tentukan tahap berdasarkan
+                            # suhu maksimum sepanjang event
+                            if max_temp > 40:
+        
+                                event_level = "Tahap 3"
+        
+                            elif max_temp >= 37:
+        
+                                event_level = "Tahap 2"
+        
+                            else:
+        
+                                event_level = "Tahap 1"
+        
+                            detected_events.append({
+                                "Tahun": int(
+                                    event_df["Year"].iloc[0]
+                                ),
+                                "Tahap": event_level,
+                                "Tarikh Mula": event_df["Date"].min(),
+                                "Tarikh Tamat": event_df["Date"].max(),
+                                "Bilangan Hari": len(event_df),
+                                "Suhu Maksimum (°C)": max_temp
+                            })
+        
+                        current_event = [row]
+        
+                # ------------------------------------------------
+                # SUHU < 35°C
+                # ------------------------------------------------
+        
                 else:
         
                     if len(current_event) >= 3:
@@ -3259,8 +3320,6 @@ with main_tabs[3]:
                             "Temperature"
                         ].max()
         
-                        # Tentukan tahap berdasarkan
-                        # suhu maksimum event
                         if max_temp > 40:
         
                             event_level = "Tahap 3"
@@ -3274,6 +3333,9 @@ with main_tabs[3]:
                             event_level = "Tahap 1"
         
                         detected_events.append({
+                            "Tahun": int(
+                                event_df["Year"].iloc[0]
+                            ),
                             "Tahap": event_level,
                             "Tarikh Mula": event_df["Date"].min(),
                             "Tarikh Tamat": event_df["Date"].max(),
@@ -3281,284 +3343,448 @@ with main_tabs[3]:
                             "Suhu Maksimum (°C)": max_temp
                         })
         
-                    current_event = [row]
+                    current_event = []
         
-            # ------------------------------------------------
-            # NORMAL / MISSING
-            # ------------------------------------------------
+                previous_date = current_date
+        
+            # ====================================================
+            # CHECK LAST EVENT
+            # ====================================================
+        
+            if len(current_event) >= 3:
+        
+                event_df = pd.DataFrame(
+                    current_event
+                )
+        
+                max_temp = event_df[
+                    "Temperature"
+                ].max()
+        
+                if max_temp > 40:
+        
+                    event_level = "Tahap 3"
+        
+                elif max_temp >= 37:
+        
+                    event_level = "Tahap 2"
+        
+                else:
+        
+                    event_level = "Tahap 1"
+        
+                detected_events.append({
+                    "Tahun": int(
+                        event_df["Year"].iloc[0]
+                    ),
+                    "Tahap": event_level,
+                    "Tarikh Mula": event_df["Date"].min(),
+                    "Tarikh Tamat": event_df["Date"].max(),
+                    "Bilangan Hari": len(event_df),
+                    "Suhu Maksimum (°C)": max_temp
+                })
+        
+            # ====================================================
+            # RESULT
+            # ====================================================
+        
+            if not detected_events:
+        
+                st.success(
+                    "✅ Tiada kejadian cuaca panas "
+                    "selama sekurang-kurangnya 3 hari "
+                    "berturut-turut dikesan."
+                )
         
             else:
         
-                if len(current_event) >= 3:
+                heatwave_df = pd.DataFrame(
+                    detected_events
+                )
         
-                    event_df = pd.DataFrame(
-                        current_event
+                heatwave_df = (
+                    heatwave_df
+                    .sort_values(
+                        [
+                            "Tahun",
+                            "Tarikh Mula"
+                        ]
                     )
-        
-                    max_temp = event_df[
-                        "Temperature"
-                    ].max()
-        
-                    if max_temp > 40:
-        
-                        event_level = "Tahap 3"
-        
-                    elif max_temp >= 37:
-        
-                        event_level = "Tahap 2"
-        
-                    else:
-        
-                        event_level = "Tahap 1"
-        
-                    detected_events.append({
-                        "Tahap": event_level,
-                        "Tarikh Mula": event_df["Date"].min(),
-                        "Tarikh Tamat": event_df["Date"].max(),
-                        "Bilangan Hari": len(event_df),
-                        "Suhu Maksimum (°C)": max_temp
-                    })
-        
-                current_event = []
-        
-            previous_date = current_date
-        
-        
-        # ====================================================
-        # CHECK LAST EVENT
-        # ====================================================
-        
-        if len(current_event) >= 3:
-        
-            event_df = pd.DataFrame(
-                current_event
-            )
-        
-            max_temp = event_df[
-                "Temperature"
-            ].max()
-        
-            if max_temp > 40:
-        
-                event_level = "Tahap 3"
-        
-            elif max_temp >= 37:
-        
-                event_level = "Tahap 2"
-        
-            else:
-        
-                event_level = "Tahap 1"
-        
-            detected_events.append({
-                "Tahap": event_level,
-                "Tarikh Mula": event_df["Date"].min(),
-                "Tarikh Tamat": event_df["Date"].max(),
-                "Bilangan Hari": len(event_df),
-                "Suhu Maksimum (°C)": max_temp
-            })
-    
-        # ====================================================
-        # RESULT
-        # ====================================================
-
-        if not detected_events:
-
-            st.success(
-                "✅ Tiada kejadian cuaca panas "
-                "selama sekurang-kurangnya 3 hari "
-                "berturut-turut dikesan."
-            )
-
-        else:
-
-            heatwave_df = pd.DataFrame(
-                detected_events
-            )
-
-            # ------------------------------------------------
-            # METRICS
-            # ------------------------------------------------
-
-            total_events = len(
-                heatwave_df
-            )
-
-            stage1_count = (
-                heatwave_df["Tahap"]
-                .eq("Tahap 1")
-                .sum()
-            )
-
-            stage2_count = (
-                heatwave_df["Tahap"]
-                .eq("Tahap 2")
-                .sum()
-            )
-
-            stage3_count = (
-                heatwave_df["Tahap"]
-                .eq("Tahap 3")
-                .sum()
-            )
-
-            col1, col2, col3, col4 = (
-                st.columns(4)
-            )
-
-            with col1:
-
-                st.metric(
-                    "🔥 Jumlah Kejadian",
-                    total_events
+                    .reset_index(drop=True)
                 )
-
-            with col2:
-
-                st.metric(
-                    "🟡 Tahap 1",
-                    stage1_count
+        
+                # =================================================
+                # RINGKASAN MENGIKUT TAHUN
+                # =================================================
+        
+                st.subheader(
+                    "📊 Ringkasan Cuaca Panas Mengikut Tahun"
                 )
-
-            with col3:
-
-                st.metric(
-                    "🟠 Tahap 2",
-                    stage2_count
+        
+                yearly_summary = (
+                    heatwave_df
+                    .pivot_table(
+                        index="Tahun",
+                        columns="Tahap",
+                        values="Tarikh Mula",
+                        aggfunc="count",
+                        fill_value=0
+                    )
+                    .reset_index()
                 )
-
-            with col4:
-
-                st.metric(
-                    "🔴 Tahap 3",
-                    stage3_count
-                )
-
-            st.markdown("---")
-
-            # ------------------------------------------------
-            # FORMAT TARIKH
-            # ------------------------------------------------
-
-            display_heatwave = (
-                heatwave_df.copy()
-            )
-
-            display_heatwave[
-                "Tarikh Mula"
-            ] = (
-                display_heatwave[
-                    "Tarikh Mula"
-                ]
-                .dt.strftime("%d/%m/%Y")
-            )
-
-            display_heatwave[
-                "Tarikh Tamat"
-            ] = (
-                display_heatwave[
-                    "Tarikh Tamat"
-                ]
-                .dt.strftime("%d/%m/%Y")
-            )
-
-            # ------------------------------------------------
-            # TABLE
-            # ------------------------------------------------
-
-            st.subheader(
-                "📋 Rekod Kejadian Cuaca Panas"
-            )
-
-            st.dataframe(
-                display_heatwave,
-                use_container_width=True,
-                hide_index=True
-            )
-
-            # ------------------------------------------------
-            # CHART
-            # ------------------------------------------------
-
-            st.subheader(
-                "📊 Bilangan Kejadian Mengikut Tahap"
-            )
-
-            stage_counts = pd.DataFrame({
-                "Tahap": [
+        
+                # Pastikan semua kolum tahap wujud
+                for stage in [
                     "Tahap 1",
                     "Tahap 2",
                     "Tahap 3"
-                ],
-                "Bilangan": [
-                    stage1_count,
-                    stage2_count,
-                    stage3_count
+                ]:
+        
+                    if stage not in yearly_summary.columns:
+        
+                        yearly_summary[stage] = 0
+        
+                yearly_summary = yearly_summary[
+                    [
+                        "Tahun",
+                        "Tahap 1",
+                        "Tahap 2",
+                        "Tahap 3"
+                    ]
                 ]
-            })
-
-            fig, ax = plt.subplots(
-                figsize=(10, 6)
-            )
-
-            ax.bar(
-                stage_counts["Tahap"],
-                stage_counts["Bilangan"],
-                edgecolor="black",
-                linewidth=0.8
-            )
-
-            ax.set_title(
-                "Bilangan Kejadian Cuaca Panas",
-                fontsize=15,
-                fontweight="bold"
-            )
-
-            ax.set_xlabel(
-                "Tahap Cuaca Panas"
-            )
-
-            ax.set_ylabel(
-                "Bilangan Kejadian"
-            )
-
-            ax.grid(
-                True,
-                axis="y",
-                linestyle="--",
-                alpha=0.4
-            )
-
-            plt.tight_layout()
-
-            st.pyplot(
-                fig,
-                use_container_width=True
-            )
-
-            plt.close(fig)
-
-            # ------------------------------------------------
-            # DOWNLOAD
-            # ------------------------------------------------
-
-            csv_heatwave = (
-                display_heatwave
-                .to_csv(index=False)
-                .encode("utf-8")
-            )
-
-            st.download_button(
-                "⬇️ Download Rekod Cuaca Panas",
-                data=csv_heatwave,
-                file_name=(
-                    f"rekod_cuaca_panas_"
-                    f"{selected_station_extreme}.csv"
-                ),
-                mime="text/csv",
-                key="download_heatwave"
-            )
-
+        
+                yearly_summary["Jumlah Kejadian"] = (
+                    yearly_summary[
+                        [
+                            "Tahap 1",
+                            "Tahap 2",
+                            "Tahap 3"
+                        ]
+                    ]
+                    .sum(axis=1)
+                )
+        
+                yearly_summary = yearly_summary.sort_values(
+                    "Tahun"
+                )
+        
+                st.dataframe(
+                    yearly_summary,
+                    use_container_width=True,
+                    hide_index=True
+                )
+        
+                # =================================================
+                # METRICS KESELURUHAN
+                # =================================================
+        
+                st.markdown("---")
+        
+                total_events = len(
+                    heatwave_df
+                )
+        
+                stage1_count = (
+                    heatwave_df["Tahap"]
+                    .eq("Tahap 1")
+                    .sum()
+                )
+        
+                stage2_count = (
+                    heatwave_df["Tahap"]
+                    .eq("Tahap 2")
+                    .sum()
+                )
+        
+                stage3_count = (
+                    heatwave_df["Tahap"]
+                    .eq("Tahap 3")
+                    .sum()
+                )
+        
+                col1, col2, col3, col4 = (
+                    st.columns(4)
+                )
+        
+                with col1:
+        
+                    st.metric(
+                        "🔥 Jumlah Kejadian",
+                        total_events
+                    )
+        
+                with col2:
+        
+                    st.metric(
+                        "🟡 Tahap 1",
+                        stage1_count
+                    )
+        
+                with col3:
+        
+                    st.metric(
+                        "🟠 Tahap 2",
+                        stage2_count
+                    )
+        
+                with col4:
+        
+                    st.metric(
+                        "🔴 Tahap 3",
+                        stage3_count
+                    )
+        
+                # =================================================
+                # GRAF — JUMLAH KEJADIAN MENGIKUT TAHUN
+                # =================================================
+        
+                st.markdown("---")
+        
+                st.subheader(
+                    "📈 Trend Bilangan Kejadian Cuaca Panas"
+                )
+        
+                fig, ax = plt.subplots(
+                    figsize=(FIG_WIDTH, FIG_HEIGHT)
+                )
+        
+                ax.plot(
+                    yearly_summary["Tahun"],
+                    yearly_summary["Jumlah Kejadian"],
+                    marker="o",
+                    linewidth=2
+                )
+        
+                ax.set_title(
+                    f"Bilangan Kejadian Cuaca Panas Mengikut Tahun\n"
+                    f"{selected_station_extreme}",
+                    fontsize=16,
+                    fontweight="bold"
+                )
+        
+                ax.set_xlabel(
+                    "Tahun"
+                )
+        
+                ax.set_ylabel(
+                    "Bilangan Kejadian"
+                )
+        
+                ax.grid(
+                    True,
+                    axis="y",
+                    linestyle="--",
+                    alpha=0.4
+                )
+        
+                plt.xticks(
+                    rotation=45
+                )
+        
+                plt.tight_layout()
+        
+                st.pyplot(
+                    fig,
+                    use_container_width=True
+                )
+        
+                plt.close(fig)
+        
+                # =================================================
+                # GRAF — TAHAP MENGIKUT TAHUN
+                # =================================================
+        
+                st.subheader(
+                    "📊 Tahap Cuaca Panas Mengikut Tahun"
+                )
+        
+                fig, ax = plt.subplots(
+                    figsize=(FIG_WIDTH, FIG_HEIGHT)
+                )
+        
+                x = np.arange(
+                    len(yearly_summary)
+                )
+        
+                width = 0.25
+        
+                bars1 = ax.bar(
+                    x - width,
+                    yearly_summary["Tahap 1"],
+                    width,
+                    label="Tahap 1",
+                    edgecolor="black",
+                    linewidth=0.8
+                )
+        
+                bars2 = ax.bar(
+                    x,
+                    yearly_summary["Tahap 2"],
+                    width,
+                    label="Tahap 2",
+                    edgecolor="black",
+                    linewidth=0.8
+                )
+        
+                bars3 = ax.bar(
+                    x + width,
+                    yearly_summary["Tahap 3"],
+                    width,
+                    label="Tahap 3",
+                    edgecolor="black",
+                    linewidth=0.8
+                )
+        
+                # Label nilai
+                for bars in [
+                    bars1,
+                    bars2,
+                    bars3
+                ]:
+        
+                    for bar in bars:
+        
+                        height = bar.get_height()
+        
+                        if height > 0:
+        
+                            ax.text(
+                                bar.get_x()
+                                + bar.get_width() / 2,
+                                height + 0.05,
+                                f"{int(height)}",
+                                ha="center",
+                                va="bottom",
+                                fontsize=9,
+                                fontweight="bold"
+                            )
+        
+                ax.set_title(
+                    f"Bilangan Kejadian Mengikut Tahap dan Tahun\n"
+                    f"{selected_station_extreme}",
+                    fontsize=16,
+                    fontweight="bold"
+                )
+        
+                ax.set_xlabel(
+                    "Tahun"
+                )
+        
+                ax.set_ylabel(
+                    "Bilangan Kejadian"
+                )
+        
+                ax.set_xticks(
+                    x
+                )
+        
+                ax.set_xticklabels(
+                    yearly_summary["Tahun"]
+                    .astype(int)
+                )
+        
+                ax.legend()
+        
+                ax.grid(
+                    True,
+                    axis="y",
+                    linestyle="--",
+                    alpha=0.4
+                )
+        
+                plt.xticks(
+                    rotation=45
+                )
+        
+                plt.tight_layout()
+        
+                st.pyplot(
+                    fig,
+                    use_container_width=True
+                )
+        
+                plt.close(fig)
+        
+                # =================================================
+                # REKOD KEJADIAN MENGIKUT TAHUN
+                # =================================================
+        
+                st.markdown("---")
+        
+                st.subheader(
+                    "📋 Rekod Kejadian Cuaca Panas Mengikut Tahun"
+                )
+        
+                display_heatwave = (
+                    heatwave_df.copy()
+                )
+        
+                display_heatwave[
+                    "Tarikh Mula"
+                ] = (
+                    display_heatwave[
+                        "Tarikh Mula"
+                    ]
+                    .dt.strftime("%d/%m/%Y")
+                )
+        
+                display_heatwave[
+                    "Tarikh Tamat"
+                ] = (
+                    display_heatwave[
+                        "Tarikh Tamat"
+                    ]
+                    .dt.strftime("%d/%m/%Y")
+                )
+        
+                st.dataframe(
+                    display_heatwave,
+                    use_container_width=True,
+                    hide_index=True
+                )
+        
+                # =================================================
+                # DOWNLOAD REKOD
+                # =================================================
+        
+                csv_heatwave = (
+                    display_heatwave
+                    .to_csv(index=False)
+                    .encode("utf-8")
+                )
+        
+                st.download_button(
+                    "⬇️ Download Rekod Cuaca Panas",
+                    data=csv_heatwave,
+                    file_name=(
+                        f"rekod_cuaca_panas_mengikut_tahun_"
+                        f"{selected_station_extreme}.csv"
+                    ),
+                    mime="text/csv",
+                    key="download_heatwave"
+                )
+        
+                # =================================================
+                # DOWNLOAD RINGKASAN TAHUN
+                # =================================================
+        
+                csv_yearly_heatwave = (
+                    yearly_summary
+                    .to_csv(index=False)
+                    .encode("utf-8")
+                )
+        
+                st.download_button(
+                    "⬇️ Download Ringkasan Mengikut Tahun",
+                    data=csv_yearly_heatwave,
+                    file_name=(
+                        f"ringkasan_cuaca_panas_tahunan_"
+                        f"{selected_station_extreme}.csv"
+                    ),
+                    mime="text/csv",
+                    key="download_yearly_heatwave"
+                )
+                
 # ============================================================
 # FOOTER
 # ============================================================
