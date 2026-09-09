@@ -3071,7 +3071,7 @@ with main_tabs[1]:
     # TAB 5 — BOXPLOT DAILY TEMPERATURE
     # ============================================================
     
-    with all_year_tabs[4]:
+    with all_year_tabs[3]:
     
         st.subheader(
             f"📦 Boxplot Temperature Mengikut Bulan — All Years"
