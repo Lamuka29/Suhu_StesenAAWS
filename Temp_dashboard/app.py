@@ -3653,12 +3653,12 @@ with main_tabs[3]:
                 
                 img_stage = io.BytesIO()
                 
-                fig_stage.savefig(
+                fig.savefig(
                     img_stage,
                     format="png",
                     dpi=300,
                     bbox_inches="tight",
-                    facecolor=fig_stage.get_facecolor()
+                    facecolor=fig.get_facecolor()
                 )
                 
                 img_stage.seek(0)
