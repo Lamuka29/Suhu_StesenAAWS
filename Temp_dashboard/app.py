@@ -2132,14 +2132,56 @@ with main_tabs[1]:
             "📈 Monthly Temperature — All Years"
         )
     
-        st.dataframe(
-            yearly_mean_table,
-            use_container_width=True
+        # ====================================================
+        # PREPARE DATA
+        # ====================================================
+    
+        # Pastikan hanya bulan yang diperlukan
+        monthly_mean = (
+            climatological_mean
+            .reindex(months)
+            .copy()
         )
     
-        # ----------------------------------------------------
-        # BAR + LINE GRAPH
-        # ----------------------------------------------------
+        # Minimum setiap bulan sepanjang semua tahun
+        monthly_min = (
+            yearly_mean_table[months]
+            .min(axis=0)
+            .reindex(months)
+        )
+    
+        # Maximum setiap bulan sepanjang semua tahun
+        monthly_max = (
+            yearly_mean_table[months]
+            .max(axis=0)
+            .reindex(months)
+        )
+    
+        # ====================================================
+        # SUMMARY TABLE
+        # ====================================================
+    
+        monthly_summary = pd.DataFrame({
+            "Month": months,
+            "Mean (°C)": monthly_mean.values,
+            "Minimum (°C)": monthly_min.values,
+            "Maximum (°C)": monthly_max.values
+        })
+    
+        monthly_summary = (
+            monthly_summary
+            .round(2)
+        )
+    
+        st.dataframe(
+            monthly_summary,
+            use_container_width=True,
+            hide_index=True
+        )
+    
+        # ====================================================
+        # GRAPH
+        # ====================================================
     
         fig, ax = plt.subplots(
             figsize=(FIG_WIDTH, FIG_HEIGHT)
@@ -2148,75 +2190,134 @@ with main_tabs[1]:
         fig.patch.set_facecolor(BG_COLOR)
         ax.set_facecolor(BG_COLOR)
     
-        # ----------------------------------------------------
-        # BAR SETTING
-        # ----------------------------------------------------
+        x = np.arange(len(months))
     
-        n_years = len(yearly_mean_table.index)
-        n_months = len(months)
+        # ====================================================
+        # BAR — PURATA SUHU
+        # ====================================================
     
-        x = np.arange(n_months)
-    
-        # Lebar setiap bar
-        total_width = 0.85
-    
-        bar_width = (
-            total_width / n_years
+        bars = ax.bar(
+            x,
+            monthly_mean.values,
+            width=0.65,
+            color=st.session_state.bar_colors[
+                0
+            ],
+            edgecolor="black",
+            linewidth=0.8,
+            alpha=0.80,
+            label=f"Mean {YEAR_RANGE_TEXT}"
         )
     
-        # ----------------------------------------------------
-        # BAR — SETIAP TAHUN
-        # ----------------------------------------------------
-    
-        for i, year in enumerate(
-            yearly_mean_table.index
-        ):
-    
-            values = (
-                yearly_mean_table
-                .loc[year, months]
-                .values
-            )
-    
-            offset = (
-                i - (n_years - 1) / 2
-            ) * bar_width
-    
-            bars = ax.bar(
-                x + offset,
-                values,
-                width=bar_width,
-                label=str(int(year)),
-                alpha=0.75,
-                edgecolor="black",
-                linewidth=0.5
-            )
-    
-        # ----------------------------------------------------
-        # LINE — PURATA SEMUA TAHUN
-        # ----------------------------------------------------
+        # ====================================================
+        # LINE — MINIMUM
+        # ====================================================
     
         ax.plot(
             x,
-            climatological_mean.values,
-            color=LINE_COLOR,
+            monthly_min.values,
+            color=MIN_COLOR,
             marker="o",
-            linewidth=3,
             markersize=7,
-            label=f"Mean {YEAR_RANGE_TEXT}",
-            zorder=10
+            linewidth=2.5,
+            label="Minimum",
+            zorder=5
         )
     
-        # ----------------------------------------------------
-        # LABEL
-        # ----------------------------------------------------
+        # ====================================================
+        # LINE — MAXIMUM
+        # ====================================================
+    
+        ax.plot(
+            x,
+            monthly_max.values,
+            color=MAX_COLOR,
+            marker="o",
+            markersize=7,
+            linewidth=2.5,
+            label="Maximum",
+            zorder=6
+        )
+    
+        # ====================================================
+        # VALUE LABEL — BAR MEAN
+        # ====================================================
+    
+        for bar, value in zip(
+            bars,
+            monthly_mean.values
+        ):
+    
+            if pd.notna(value):
+    
+                ax.text(
+                    bar.get_x()
+                    + bar.get_width() / 2,
+                    bar.get_height() + 0.3,
+                    f"{value:.1f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                    fontweight="bold"
+                )
+    
+        # ====================================================
+        # VALUE LABEL — MINIMUM
+        # ====================================================
+    
+        for i, value in enumerate(
+            monthly_min.values
+        ):
+    
+            if pd.notna(value):
+    
+                ax.text(
+                    x[i],
+                    value - 0.8,
+                    f"{value:.1f}",
+                    ha="center",
+                    va="top",
+                    fontsize=8,
+                    fontweight="bold",
+                    color=MIN_COLOR
+                )
+    
+        # ====================================================
+        # VALUE LABEL — MAXIMUM
+        # ====================================================
+    
+        for i, value in enumerate(
+            monthly_max.values
+        ):
+    
+            if pd.notna(value):
+    
+                ax.text(
+                    x[i],
+                    value + 0.3,
+                    f"{value:.1f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                    fontweight="bold",
+                    color=MAX_COLOR
+                )
+    
+        # ====================================================
+        # TITLE
+        # ====================================================
     
         ax.set_title(
             f"{result['file_name']}\n"
-            f"Monthly Mean Temperature — All Years",
+            f"Monthly Temperature — Mean, Minimum & Maximum\n"
+            f"{YEAR_RANGE_TEXT}",
             fontsize=16,
             fontweight="bold"
         )
+    
+        # ====================================================
+        # AXIS LABEL
+        # ====================================================
     
         ax.set_xlabel(
             "Month",
@@ -2236,10 +2337,18 @@ with main_tabs[1]:
             months
         )
     
+        # ====================================================
+        # Y-AXIS
+        # ====================================================
+    
         ax.set_ylim(
             TEMP_MIN,
             TEMP_MAX
         )
+    
+        # ====================================================
+        # GRID
+        # ====================================================
     
         ax.grid(
             True,
@@ -2248,30 +2357,84 @@ with main_tabs[1]:
             alpha=0.4
         )
     
-        # ----------------------------------------------------
+        # ====================================================
         # LEGEND
-        # ----------------------------------------------------
+        # ====================================================
     
         ax.legend(
-            bbox_to_anchor=(1.02, 1),
             loc="upper left",
-            fontsize=8
+            fontsize=10,
+            frameon=True
         )
     
+        # ====================================================
+        # LAYOUT
+        # ====================================================
+    
         plt.xticks(
-            rotation=45
+            rotation=0
         )
     
         plt.tight_layout()
+    
+        # ====================================================
+        # DISPLAY GRAPH
+        # ====================================================
     
         st.pyplot(
             fig,
             use_container_width=True
         )
     
+        # ====================================================
+        # DOWNLOAD GRAPH
+        # ====================================================
+    
+        img_monthly = io.BytesIO()
+    
+        fig.savefig(
+            img_monthly,
+            format="png",
+            dpi=300,
+            bbox_inches="tight",
+            facecolor=fig.get_facecolor()
+        )
+    
+        img_monthly.seek(0)
+    
+        st.download_button(
+            label="📥 Download Graf Monthly Temperature",
+            data=img_monthly,
+            file_name=(
+                f"Monthly_Temperature_"
+                f"{result['file_name']}.png"
+            ),
+            mime="image/png",
+            key="download_all_year_monthly_temperature_graph"
+        )
+    
+        # ====================================================
+        # DOWNLOAD TABLE
+        # ====================================================
+    
+        csv_monthly = (
+            monthly_summary
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+    
+        st.download_button(
+            label="⬇️ Download Monthly Temperature Table",
+            data=csv_monthly,
+            file_name=(
+                f"Monthly_Temperature_"
+                f"{result['file_name']}.csv"
+            ),
+            mime="text/csv",
+            key="download_all_year_monthly_temperature_table"
+        )
+    
         plt.close(fig)
-
-
     # ========================================================
     # TAB 2 — HEATMAP
     # ========================================================
