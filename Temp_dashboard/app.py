@@ -2998,46 +2998,72 @@ with main_tabs[3]:
     # ========================================================
     # TAB 4 — MAXIMUM MENGIKUT TAHUN
     # ========================================================
-
+    
     with extreme_tabs[3]:
-
+    
         st.subheader(
             "📅 Suhu Maximum Mengikut Tahun"
         )
-
-        annual_max = (
+    
+        # ----------------------------------------------------
+        # CARI BARIS SUHU MAKSIMUM SETIAP TAHUN
+        # ----------------------------------------------------
+    
+        annual_max_idx = (
             extreme_long
             .groupby("Year")["Temperature"]
-            .max()
-            .reset_index()
+            .idxmax()
         )
-
+    
+        annual_max = (
+            extreme_long
+            .loc[
+                annual_max_idx,
+                ["Year", "Date", "Temperature"]
+            ]
+            .copy()
+        )
+    
+        annual_max = annual_max.sort_values(
+            "Year"
+        )
+    
         annual_max["Year"] = (
             annual_max["Year"]
             .astype(int)
         )
-
-        annual_max = annual_max.sort_values(
-            "Year"
+    
+        # ----------------------------------------------------
+        # FORMAT TARIKH
+        # ----------------------------------------------------
+    
+        annual_max["Date"] = (
+            pd.to_datetime(
+                annual_max["Date"]
+            ).dt.strftime("%d/%m/%Y")
         )
-
+    
+        # ----------------------------------------------------
+        # TABLE DISPLAY
+        # ----------------------------------------------------
+    
         annual_max_display = (
             annual_max
             .rename(
                 columns={
                     "Year": "Tahun",
+                    "Date": "Tarikh",
                     "Temperature": "Maximum (°C)"
                 }
             )
             .reset_index(drop=True)
         )
-
+    
         st.dataframe(
             annual_max_display,
             use_container_width=True,
             hide_index=True
         )
-
         # ----------------------------------------------------
         # BAR CHART
         # ----------------------------------------------------
