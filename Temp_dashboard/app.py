@@ -2680,7 +2680,7 @@ with main_tabs[1]:
 
         ax.boxplot(
             box_data,
-            labels=months,
+            tick_labels=months,
             patch_artist=False
         )
 
