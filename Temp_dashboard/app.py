@@ -2122,105 +2122,153 @@ with main_tabs[1]:
         "📦 Boxplot"
     ])
 
-
     # ========================================================
     # TAB 1 — MONTHLY TEMPERATURE
     # ========================================================
-
+    
     with all_year_tabs[0]:
-
+    
         st.subheader(
-            "📈 Monthly Mean Temperature — All Years"
+            "📈 Monthly Temperature — All Years"
         )
-
+    
         st.dataframe(
             yearly_mean_table,
             use_container_width=True
         )
-
+    
         # ----------------------------------------------------
-        # LINE GRAPH
+        # BAR + LINE GRAPH
         # ----------------------------------------------------
-
+    
         fig, ax = plt.subplots(
             figsize=(FIG_WIDTH, FIG_HEIGHT)
         )
-
+    
         fig.patch.set_facecolor(BG_COLOR)
         ax.set_facecolor(BG_COLOR)
-
-        for year in yearly_mean_table.index:
-
-            values = yearly_mean_table.loc[
-                year,
-                months
-            ]
-
-            ax.plot(
-                months,
-                values,
-                marker="o",
-                linewidth=1.5,
-                alpha=0.60,
-                label=str(int(year))
+    
+        # ----------------------------------------------------
+        # BAR SETTING
+        # ----------------------------------------------------
+    
+        n_years = len(yearly_mean_table.index)
+        n_months = len(months)
+    
+        x = np.arange(n_months)
+    
+        # Lebar setiap bar
+        total_width = 0.85
+    
+        bar_width = (
+            total_width / n_years
+        )
+    
+        # ----------------------------------------------------
+        # BAR — SETIAP TAHUN
+        # ----------------------------------------------------
+    
+        for i, year in enumerate(
+            yearly_mean_table.index
+        ):
+    
+            values = (
+                yearly_mean_table
+                .loc[year, months]
+                .values
             )
-
-        # Mean keseluruhan
+    
+            offset = (
+                i - (n_years - 1) / 2
+            ) * bar_width
+    
+            bars = ax.bar(
+                x + offset,
+                values,
+                width=bar_width,
+                label=str(int(year)),
+                alpha=0.75,
+                edgecolor="black",
+                linewidth=0.5
+            )
+    
+        # ----------------------------------------------------
+        # LINE — PURATA SEMUA TAHUN
+        # ----------------------------------------------------
+    
         ax.plot(
-            months,
+            x,
             climatological_mean.values,
             color=LINE_COLOR,
             marker="o",
             linewidth=3,
-            label=f"Mean {YEAR_RANGE_TEXT}"
+            markersize=7,
+            label=f"Mean {YEAR_RANGE_TEXT}",
+            zorder=10
         )
-
+    
+        # ----------------------------------------------------
+        # LABEL
+        # ----------------------------------------------------
+    
         ax.set_title(
             f"{result['file_name']}\n"
-            f"Monthly Mean Temperature by Year",
+            f"Monthly Mean Temperature — All Years",
             fontsize=16,
             fontweight="bold"
         )
-
+    
         ax.set_xlabel(
             "Month",
             fontsize=12
         )
-
+    
         ax.set_ylabel(
             "Temperature (°C)",
             fontsize=12
         )
-
+    
+        ax.set_xticks(
+            x
+        )
+    
+        ax.set_xticklabels(
+            months
+        )
+    
         ax.set_ylim(
             TEMP_MIN,
             TEMP_MAX
         )
-
+    
         ax.grid(
             True,
             axis="y",
             linestyle="--",
             alpha=0.4
         )
-
+    
+        # ----------------------------------------------------
+        # LEGEND
+        # ----------------------------------------------------
+    
         ax.legend(
             bbox_to_anchor=(1.02, 1),
             loc="upper left",
             fontsize=8
         )
-
+    
         plt.xticks(
             rotation=45
         )
-
+    
         plt.tight_layout()
-
+    
         st.pyplot(
             fig,
             use_container_width=True
         )
-
+    
         plt.close(fig)
 
 
