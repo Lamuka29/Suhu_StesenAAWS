@@ -3357,30 +3357,7 @@ with main_tabs[3]:
                 "Bilangan Hari": len(event_df),
                 "Suhu Maksimum (°C)": max_temp
             })
-        # ====================================================
-        # CHECK LAST EVENT
-        # ====================================================
-
-        if (
-            current_level is not None
-            and start_date is not None
-            and previous_date is not None
-        ):
-
-            duration = (
-                previous_date
-                - start_date
-            ).days + 1
-
-            if duration >= 3:
-
-                detected_events.append({
-                    "Tahap": current_level,
-                    "Tarikh Mula": start_date,
-                    "Tarikh Tamat": previous_date,
-                    "Bilangan Hari": duration
-                })
-
+    
         # ====================================================
         # RESULT
         # ====================================================
