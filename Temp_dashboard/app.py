@@ -3646,7 +3646,31 @@ with main_tabs[3]:
                     fig,
                     use_container_width=True
                 )
-        
+
+                # ============================================================
+                # DOWNLOAD GRAF TAHAP CUACA PANAS
+                # ============================================================
+                
+                img_stage = io.BytesIO()
+                
+                fig_stage.savefig(
+                    img_stage,
+                    format="png",
+                    dpi=300,
+                    bbox_inches="tight",
+                    facecolor=fig_stage.get_facecolor()
+                )
+                
+                img_stage.seek(0)
+                
+                st.download_button(
+                    label="📥 Download Graf Tahap Cuaca Panas",
+                    data=img_stage,
+                    file_name=f"Tahap_Cuaca_Panas_{selected_station_extreme}.png",
+                    mime="image/png",
+                    key="download_stage_heatwave_graph"
+                )
+                                
                 plt.close(fig)
         
                 # =================================================
