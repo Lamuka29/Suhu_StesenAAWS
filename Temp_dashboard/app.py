@@ -1879,197 +1879,522 @@ with main_tabs[0]:
         # ========================================================
         # TAB 7 — TEMPERATURE EXTREMES
         # ========================================================
+        
         with tabs[6]:
-
+        
             st.subheader(
-                f"🌡️ Temperature Extremes "
-                f"{YEAR_RANGE_TEXT}"
+                f"🌡️ Temperature Extremes — {target_year}"
             )
-
-            max_records = result["max_records"].copy()
-            min_records = result["min_records"].copy()
-
-            ec1, ec2 = st.columns(2)
-
-            with ec1:
-
-                st.markdown("### 🔥 Highest Temperature")
-
-                if not max_records.empty:
-
-                    highest = max_records.iloc[0]
-
-                    st.metric(
-                        "Highest Recorded Temperature",
-                        f"{highest['Temperature (°C)']:.2f} °C",
-                        f"{highest['Day']} {highest['Month']} "
-                        f"{highest['Year']}"
-                    )
-
-                    display_max = max_records[
-                        [
-                            "Year",
-                            "Month",
-                            "Day",
-                            "Date",
-                            "Temperature (°C)"
-                        ]
-                    ].copy()
-
-                    display_max["Date"] = (
-                        display_max["Date"]
-                        .dt.strftime("%d-%m-%Y")
-                    )
-
-                    st.dataframe(
-                        display_max,
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-                    csv = display_max.to_csv(
-                        index=False
-                    ).encode("utf-8")
-
-                    st.download_button(
-                        "📥 Download Highest Temperature CSV",
-                        data=csv,
-                        file_name=(
-                            f"{selected_station}_highest_temperature_"
-                            f"{YEAR_RANGE_TEXT}.csv"
-                        ),
-                        mime="text/csv",
-                        key=(
-                            f"download_highest_temperature_"
-                            f"{selected_station}_{YEAR_RANGE_TEXT}"
-                        )
-                    )
-
-                else:
-                    st.info(
-                        "Tiada data suhu sah."
-                    )
-
-            with ec2:
-
-                st.markdown("### ❄️ Lowest Temperature")
-
-                if not min_records.empty:
-
-                    lowest = min_records.iloc[0]
-
-                    st.metric(
-                        "Lowest Recorded Temperature",
-                        f"{lowest['Temperature (°C)']:.2f} °C",
-                        f"{lowest['Day']} {lowest['Month']} "
-                        f"{lowest['Year']}"
-                    )
-
-                    display_min = min_records[
-                        [
-                            "Year",
-                            "Month",
-                            "Day",
-                            "Date",
-                            "Temperature (°C)"
-                        ]
-                    ].copy()
-
-                    display_min["Date"] = (
-                        display_min["Date"]
-                        .dt.strftime("%d-%m-%Y")
-                    )
-
-                    st.dataframe(
-                        display_min,
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-                    csv = display_min.to_csv(
-                        index=False
-                    ).encode("utf-8")
-
-                    st.download_button(
-                        "📥 Download Lowest Temperature CSV",
-                        data=csv,
-                        file_name=(
-                            f"{selected_station}_lowest_temperature_"
-                            f"{YEAR_RANGE_TEXT}.csv"
-                        ),
-                        mime="text/csv",
-                        key=(
-                            f"download_lowest_temperature_"
-                            f"{selected_station}_{YEAR_RANGE_TEXT}"
-                        )
-                    )
-
-                else:
-                    st.info(
-                        "Tiada data suhu sah."
-                    )
-
-            # ----------------------------------------------------
-            # MONTHLY EXTREMES BY YEAR
-            # ----------------------------------------------------
-            st.divider()
-
-            st.markdown(
-                "### 📅 Minimum dan Maximum Suhu Mengikut Tahun & Bulan"
+        
+            # ====================================================
+            # GET DAILY DATA
+            # ====================================================
+        
+            daily_long_extreme = (
+                result["daily_long"]
+                .copy()
             )
-
-            if not result["daily_long"].empty:
-
-                monthly_extremes = (
-                    result["daily_long"]
-                    .groupby(
-                        ["Year", "Month Number", "Month"],
-                        as_index=False
-                    )
-                    .agg(
-                        Minimum=("Temperature (°C)", "min"),
-                        Maximum=("Temperature (°C)", "max")
-                    )
-                    .sort_values(
-                        ["Year", "Month Number"]
-                    )
+        
+            if daily_long_extreme.empty:
+        
+                st.warning(
+                    "⚠️ Tiada data suhu untuk dianalisis."
                 )
-
-                monthly_extremes = (
-                    monthly_extremes[
-                        [
-                            "Year",
-                            "Month",
-                            "Minimum",
-                            "Maximum"
-                        ]
+        
+            else:
+        
+                # =================================================
+                # ENSURE YEAR IS NUMERIC
+                # =================================================
+        
+                daily_long_extreme["Year"] = pd.to_numeric(
+                    daily_long_extreme["Year"],
+                    errors="coerce"
+                )
+        
+                daily_long_extreme["Temperature (°C)"] = pd.to_numeric(
+                    daily_long_extreme["Temperature (°C)"],
+                    errors="coerce"
+                )
+        
+                # =================================================
+                # FILTER TARGET YEAR
+                # =================================================
+        
+                daily_long_extreme = (
+                    daily_long_extreme[
+                        daily_long_extreme["Year"]
+                        == int(target_year)
                     ]
-                    .round(2)
+                    .copy()
                 )
-
-                st.dataframe(
-                    monthly_extremes,
-                    use_container_width=True,
-                    hide_index=True
+        
+                # =================================================
+                # REMOVE INVALID TEMPERATURE
+                # =================================================
+        
+                daily_long_extreme = (
+                    daily_long_extreme[
+                        daily_long_extreme[
+                            "Temperature (°C)"
+                        ].notna()
+                    ]
+                    .copy()
                 )
-
-                csv = monthly_extremes.to_csv(
-                    index=False
-                ).encode("utf-8")
-
-                st.download_button(
-                    "📥 Download Monthly Extremes CSV",
-                    data=csv,
-                    file_name=(
-                        f"{selected_station}_monthly_temperature_extremes_"
-                        f"{YEAR_RANGE_TEXT}.csv"
-                    ),
-                    mime="text/csv",
-                    key=(
-                        f"download_monthly_temperature_extremes_"
-                        f"{selected_station}_{YEAR_RANGE_TEXT}"
+        
+                # =================================================
+                # CHECK DATA
+                # =================================================
+        
+                if daily_long_extreme.empty:
+        
+                    st.info(
+                        f"ℹ️ Tiada data suhu sah untuk "
+                        f"Target Year {target_year}."
                     )
-                )
+        
+                else:
+        
+                    # =================================================
+                    # SORT DATA
+                    # =================================================
+        
+                    if "Date" in daily_long_extreme.columns:
+        
+                        daily_long_extreme["Date"] = pd.to_datetime(
+                            daily_long_extreme["Date"],
+                            errors="coerce"
+                        )
+        
+                        daily_long_extreme = (
+                            daily_long_extreme
+                            .sort_values("Date")
+                            .reset_index(drop=True)
+                        )
+        
+                    # =================================================
+                    # HIGHEST TEMPERATURE
+                    # =================================================
+        
+                    highest_index = (
+                        daily_long_extreme[
+                            "Temperature (°C)"
+                        ].idxmax()
+                    )
+        
+                    highest = (
+                        daily_long_extreme
+                        .loc[highest_index]
+                        .copy()
+                    )
+        
+                    # =================================================
+                    # LOWEST TEMPERATURE
+                    # =================================================
+        
+                    lowest_index = (
+                        daily_long_extreme[
+                            "Temperature (°C)"
+                        ].idxmin()
+                    )
+        
+                    lowest = (
+                        daily_long_extreme
+                        .loc[lowest_index]
+                        .copy()
+                    )
+        
+                    # =================================================
+                    # TOP RECORDS
+                    # =================================================
+        
+                    max_records = (
+                        daily_long_extreme
+                        .sort_values(
+                            "Temperature (°C)",
+                            ascending=False
+                        )
+                        .copy()
+                    )
+        
+                    min_records = (
+                        daily_long_extreme
+                        .sort_values(
+                            "Temperature (°C)",
+                            ascending=True
+                        )
+                        .copy()
+                    )
+        
+                    # ========================================================
+                    # HIGHEST & LOWEST TEMPERATURE
+                    # ========================================================
+        
+                    ec1, ec2 = st.columns(2)
+        
+                    # ========================================================
+                    # HIGHEST
+                    # ========================================================
+        
+                    with ec1:
+        
+                        st.markdown(
+                            "### 🔥 Highest Temperature"
+                        )
+        
+                        highest_temp = (
+                            highest["Temperature (°C)"]
+                        )
+        
+                        highest_day = highest.get(
+                            "Day",
+                            highest.get("hari", "")
+                        )
+        
+                        highest_month = highest.get(
+                            "Month",
+                            ""
+                        )
+        
+                        highest_year = int(
+                            highest["Year"]
+                        )
+        
+                        st.metric(
+                            "Highest Recorded Temperature",
+                            f"{highest_temp:.2f} °C",
+                            f"{highest_day} "
+                            f"{highest_month} "
+                            f"{highest_year}"
+                        )
+        
+                        # --------------------------------------------
+                        # DISPLAY TOP 10 HIGHEST
+                        # --------------------------------------------
+        
+                        display_max_columns = [
+                            col
+                            for col in [
+                                "Year",
+                                "Month",
+                                "Day",
+                                "Date",
+                                "Temperature (°C)"
+                            ]
+                            if col in max_records.columns
+                        ]
+        
+                        display_max = (
+                            max_records[
+                                display_max_columns
+                            ]
+                            .head(10)
+                            .copy()
+                        )
+        
+                        if "Date" in display_max.columns:
+        
+                            display_max["Date"] = (
+                                pd.to_datetime(
+                                    display_max["Date"],
+                                    errors="coerce"
+                                )
+                                .dt.strftime("%d-%m-%Y")
+                            )
+        
+                        display_max = (
+                            display_max
+                            .round(2)
+                        )
+        
+                        st.dataframe(
+                            display_max,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+        
+                        # --------------------------------------------
+                        # DOWNLOAD HIGHEST
+                        # --------------------------------------------
+        
+                        csv_highest = (
+                            display_max
+                            .to_csv(index=False)
+                            .encode("utf-8")
+                        )
+        
+                        st.download_button(
+                            "📥 Download Highest Temperature CSV",
+                            data=csv_highest,
+                            file_name=(
+                                f"{selected_station}_"
+                                f"highest_temperature_"
+                                f"{target_year}.csv"
+                            ),
+                            mime="text/csv",
+                            key=(
+                                f"download_highest_temperature_"
+                                f"{selected_station}_"
+                                f"{target_year}"
+                            )
+                        )
+        
+                    # ========================================================
+                    # LOWEST
+                    # ========================================================
+        
+                    with ec2:
+        
+                        st.markdown(
+                            "### ❄️ Lowest Temperature"
+                        )
+        
+                        lowest_temp = (
+                            lowest["Temperature (°C)"]
+                        )
+        
+                        lowest_day = lowest.get(
+                            "Day",
+                            lowest.get("hari", "")
+                        )
+        
+                        lowest_month = lowest.get(
+                            "Month",
+                            ""
+                        )
+        
+                        lowest_year = int(
+                            lowest["Year"]
+                        )
+        
+                        st.metric(
+                            "Lowest Recorded Temperature",
+                            f"{lowest_temp:.2f} °C",
+                            f"{lowest_day} "
+                            f"{lowest_month} "
+                            f"{lowest_year}"
+                        )
+        
+                        # --------------------------------------------
+                        # DISPLAY TOP 10 LOWEST
+                        # --------------------------------------------
+        
+                        display_min_columns = [
+                            col
+                            for col in [
+                                "Year",
+                                "Month",
+                                "Day",
+                                "Date",
+                                "Temperature (°C)"
+                            ]
+                            if col in min_records.columns
+                        ]
+        
+                        display_min = (
+                            min_records[
+                                display_min_columns
+                            ]
+                            .head(10)
+                            .copy()
+                        )
+        
+                        if "Date" in display_min.columns:
+        
+                            display_min["Date"] = (
+                                pd.to_datetime(
+                                    display_min["Date"],
+                                    errors="coerce"
+                                )
+                                .dt.strftime("%d-%m-%Y")
+                            )
+        
+                        display_min = (
+                            display_min
+                            .round(2)
+                        )
+        
+                        st.dataframe(
+                            display_min,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+        
+                        # --------------------------------------------
+                        # DOWNLOAD LOWEST
+                        # --------------------------------------------
+        
+                        csv_lowest = (
+                            display_min
+                            .to_csv(index=False)
+                            .encode("utf-8")
+                        )
+        
+                        st.download_button(
+                            "📥 Download Lowest Temperature CSV",
+                            data=csv_lowest,
+                            file_name=(
+                                f"{selected_station}_"
+                                f"lowest_temperature_"
+                                f"{target_year}.csv"
+                            ),
+                            mime="text/csv",
+                            key=(
+                                f"download_lowest_temperature_"
+                                f"{selected_station}_"
+                                f"{target_year}"
+                            )
+                        )
+        
+                    # ========================================================
+                    # TEMPERATURE RANGE
+                    # ========================================================
+        
+                    temperature_range = (
+                        highest_temp
+                        - lowest_temp
+                    )
+        
+                    st.divider()
+        
+                    rc1, rc2, rc3 = st.columns(3)
+        
+                    rc1.metric(
+                        "🔥 Highest",
+                        f"{highest_temp:.2f} °C"
+                    )
+        
+                    rc2.metric(
+                        "❄️ Lowest",
+                        f"{lowest_temp:.2f} °C"
+                    )
+        
+                    rc3.metric(
+                        "📏 Temperature Range",
+                        f"{temperature_range:.2f} °C"
+                    )
+        
+                    # ========================================================
+                    # MONTHLY EXTREMES BY TARGET YEAR
+                    # ========================================================
+        
+                    st.divider()
+        
+                    st.markdown(
+                        "### 📅 Minimum dan Maximum Suhu "
+                        f"Mengikut Bulan — {target_year}"
+                    )
+        
+                    # ========================================================
+                    # CHECK REQUIRED COLUMNS
+                    # ========================================================
+        
+                    required_columns = [
+                        "Year",
+                        "Month Number",
+                        "Month",
+                        "Temperature (°C)"
+                    ]
+        
+                    missing_columns = [
+                        col
+                        for col in required_columns
+                        if col not in daily_long_extreme.columns
+                    ]
+        
+                    if missing_columns:
+        
+                        st.error(
+                            "❌ Column berikut tidak dijumpai: "
+                            + ", ".join(missing_columns)
+                        )
+        
+                    else:
+        
+                        # ====================================================
+                        # MONTHLY MINIMUM & MAXIMUM
+                        # ====================================================
+        
+                        monthly_extremes = (
+                            daily_long_extreme
+                            .groupby(
+                                [
+                                    "Year",
+                                    "Month Number",
+                                    "Month"
+                                ],
+                                as_index=False
+                            )
+                            .agg(
+                                Minimum=(
+                                    "Temperature (°C)",
+                                    "min"
+                                ),
+                                Maximum=(
+                                    "Temperature (°C)",
+                                    "max"
+                                )
+                            )
+                            .sort_values(
+                                [
+                                    "Year",
+                                    "Month Number"
+                                ]
+                            )
+                        )
+        
+                        # ====================================================
+                        # DISPLAY TABLE
+                        # ====================================================
+        
+                        monthly_extremes_display = (
+                            monthly_extremes[
+                                [
+                                    "Year",
+                                    "Month",
+                                    "Minimum",
+                                    "Maximum"
+                                ]
+                            ]
+                            .copy()
+                        )
+        
+                        monthly_extremes_display = (
+                            monthly_extremes_display
+                            .round(2)
+                        )
+        
+                        st.dataframe(
+                            monthly_extremes_display,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+        
+                        # ====================================================
+                        # DOWNLOAD MONTHLY EXTREMES
+                        # ====================================================
+        
+                        csv_monthly_extremes = (
+                            monthly_extremes_display
+                            .to_csv(index=False)
+                            .encode("utf-8")
+                        )
+        
+                        st.download_button(
+                            "📥 Download Monthly Extremes CSV",
+                            data=csv_monthly_extremes,
+                            file_name=(
+                                f"{selected_station}_"
+                                f"monthly_temperature_extremes_"
+                                f"{target_year}.csv"
+                            ),
+                            mime="text/csv",
+                            key=(
+                                f"download_monthly_temperature_extremes_"
+                                f"{selected_station}_"
+                                f"{target_year}"
+                            )
+                        )
 
 # ============================================================
 # MAIN TAB 2 — ALL YEARS
@@ -2116,7 +2441,6 @@ with main_tabs[1]:
 
     all_year_tabs = st.tabs([
         "📈 Monthly Temperature",
-        "🔥 Heatmap",
         "📊 Anomaly",
         "📋 Statistics",
         "📦 Boxplot"
@@ -2435,118 +2759,7 @@ with main_tabs[1]:
         )
     
         plt.close(fig)
-    # ========================================================
-    # TAB 2 — HEATMAP
-    # ========================================================
-
-    with all_year_tabs[1]:
-
-        st.subheader(
-            "🔥 Heatmap Suhu Bulanan Mengikut Tahun"
-        )
-
-        heatmap_data = (
-            yearly_mean_table
-            .copy()
-        )
-
-        fig, ax = plt.subplots(
-            figsize=(FIG_WIDTH, FIG_HEIGHT)
-        )
-
-        fig.patch.set_facecolor(BG_COLOR)
-        ax.set_facecolor(BG_COLOR)
-
-        im = ax.imshow(
-            heatmap_data.values,
-            aspect="auto"
-        )
-
-        # ----------------------------------------------------
-        # AXIS
-        # ----------------------------------------------------
-
-        ax.set_xticks(
-            np.arange(len(months))
-        )
-
-        ax.set_xticklabels(
-            months
-        )
-
-        ax.set_yticks(
-            np.arange(len(heatmap_data.index))
-        )
-
-        ax.set_yticklabels(
-            heatmap_data.index.astype(int)
-        )
-
-        ax.set_xlabel(
-            "Month",
-            fontsize=12
-        )
-
-        ax.set_ylabel(
-            "Year",
-            fontsize=12
-        )
-
-        ax.set_title(
-            f"{result['file_name']}\n"
-            f"Monthly Mean Temperature Heatmap "
-            f"{YEAR_RANGE_TEXT}",
-            fontsize=16,
-            fontweight="bold"
-        )
-
-        # ----------------------------------------------------
-        # NILAI DALAM HEATMAP
-        # ----------------------------------------------------
-
-        for i in range(
-            len(heatmap_data.index)
-        ):
-
-            for j in range(
-                len(months)
-            ):
-
-                value = heatmap_data.iloc[
-                    i,
-                    j
-                ]
-
-                if pd.notna(value):
-
-                    ax.text(
-                        j,
-                        i,
-                        f"{value:.1f}",
-                        ha="center",
-                        va="center",
-                        fontsize=8
-                    )
-
-        cbar = fig.colorbar(
-            im,
-            ax=ax
-        )
-
-        cbar.set_label(
-            "Temperature (°C)"
-        )
-
-        plt.tight_layout()
-
-        st.pyplot(
-            fig,
-            use_container_width=True
-        )
-
-        plt.close(fig)
-
-
+    
     # ========================================================
     # TAB 3 — ANOMALY
     # ========================================================
