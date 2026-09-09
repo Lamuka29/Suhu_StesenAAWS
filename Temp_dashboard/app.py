@@ -3535,62 +3535,6 @@ with main_tabs[3]:
                     )
         
                 # =================================================
-                # GRAF — JUMLAH KEJADIAN MENGIKUT TAHUN
-                # =================================================
-        
-                st.markdown("---")
-        
-                st.subheader(
-                    "📈 Trend Bilangan Kejadian Cuaca Panas"
-                )
-        
-                fig, ax = plt.subplots(
-                    figsize=(FIG_WIDTH, FIG_HEIGHT)
-                )
-        
-                ax.plot(
-                    yearly_summary["Tahun"],
-                    yearly_summary["Jumlah Kejadian"],
-                    marker="o",
-                    linewidth=2
-                )
-        
-                ax.set_title(
-                    f"Bilangan Kejadian Cuaca Panas Mengikut Tahun\n"
-                    f"{selected_station_extreme}",
-                    fontsize=16,
-                    fontweight="bold"
-                )
-        
-                ax.set_xlabel(
-                    "Tahun"
-                )
-        
-                ax.set_ylabel(
-                    "Bilangan Kejadian"
-                )
-        
-                ax.grid(
-                    True,
-                    axis="y",
-                    linestyle="--",
-                    alpha=0.4
-                )
-        
-                plt.xticks(
-                    rotation=45
-                )
-        
-                plt.tight_layout()
-        
-                st.pyplot(
-                    fig,
-                    use_container_width=True
-                )
-        
-                plt.close(fig)
-        
-                # =================================================
                 # GRAF — TAHAP MENGIKUT TAHUN
                 # =================================================
         
