@@ -2765,12 +2765,28 @@ with main_tabs[3]:
             .dt.strftime("%d/%m/%Y")
         )
 
-        ax.bar(
+        bars = ax.bar(
             x_labels,
             top10_highest["Temperature"],
             edgecolor="black",
             linewidth=0.8
         )
+        
+        # NILAI DI ATAS BAR
+        for bar, value in zip(
+            bars,
+            top10_highest["Temperature"]
+        ):
+        
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.3,
+                f"{value:.1f} °C",
+                ha="center",
+                va="bottom",
+                fontsize=10,
+                fontweight="bold"
+            )
 
         ax.set_title(
             f"Top 10 Suhu Tertinggi\n"
@@ -2789,7 +2805,7 @@ with main_tabs[3]:
 
         ax.set_ylim(
             TEMP_MIN,
-            TEMP_MAX
+            TEMP_MAX + 2
         )
 
         ax.tick_params(
@@ -2894,12 +2910,28 @@ with main_tabs[3]:
             .dt.strftime("%d/%m/%Y")
         )
 
-        ax.bar(
+        bars = ax.bar(
             x_labels,
             top10_lowest["Temperature"],
             edgecolor="black",
             linewidth=0.8
         )
+        
+        # NILAI DI ATAS BAR
+        for bar, value in zip(
+            bars,
+            top10_lowest["Temperature"]
+        ):
+        
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.3,
+                f"{value:.1f} °C",
+                ha="center",
+                va="bottom",
+                fontsize=10,
+                fontweight="bold"
+            )
 
         ax.set_title(
             f"Top 10 Suhu Terendah\n"
@@ -2918,7 +2950,7 @@ with main_tabs[3]:
 
         ax.set_ylim(
             TEMP_MIN,
-            TEMP_MAX
+            TEMP_MAX + 2
         )
 
         ax.tick_params(
@@ -3014,12 +3046,28 @@ with main_tabs[3]:
             figsize=(FIG_WIDTH, FIG_HEIGHT)
         )
 
-        ax.bar(
+        bars = ax.bar(
             annual_max["Year"].astype(str),
             annual_max["Temperature"],
             edgecolor="black",
             linewidth=0.8
         )
+        
+        # NILAI DI ATAS BAR
+        for bar, value in zip(
+            bars,
+            annual_max["Temperature"]
+        ):
+        
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.3,
+                f"{value:.1f} °C",
+                ha="center",
+                va="bottom",
+                fontsize=10,
+                fontweight="bold"
+            )
 
         ax.set_title(
             f"Maximum Temperature Mengikut Tahun\n"
@@ -3038,7 +3086,7 @@ with main_tabs[3]:
 
         ax.set_ylim(
             TEMP_MIN,
-            TEMP_MAX
+            TEMP_MAX + 2
         )
 
         ax.grid(
