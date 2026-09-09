@@ -2805,7 +2805,7 @@ with main_tabs[3]:
 
         ax.set_ylim(
             TEMP_MIN,
-            TEMP_MAX + 2
+            TEMP_MAX + 5
         )
 
         ax.tick_params(
@@ -2950,7 +2950,7 @@ with main_tabs[3]:
 
         ax.set_ylim(
             TEMP_MIN,
-            TEMP_MAX + 2
+            TEMP_MAX + 5
         )
 
         ax.tick_params(
@@ -3086,7 +3086,7 @@ with main_tabs[3]:
 
         ax.set_ylim(
             TEMP_MIN,
-            TEMP_MAX + 2
+            TEMP_MAX + 5
         )
 
         ax.grid(
