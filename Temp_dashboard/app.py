@@ -2074,6 +2074,7 @@ with main_tabs[0]:
 # ============================================================
 # MAIN TAB 2 — ALL YEARS
 # ============================================================
+
 with main_tabs[1]:
 
     result = display_results[0]
@@ -2083,6 +2084,10 @@ with main_tabs[1]:
         f"{YEAR_RANGE_TEXT}"
     )
 
+    # ========================================================
+    # DATA ASAS — SEMUA TAHUN
+    # ========================================================
+
     yearly_mean_table = (
         result["yearly_monthly_mean"]
         .copy()
@@ -2091,83 +2096,678 @@ with main_tabs[1]:
 
     yearly_mean_table.index.name = "Year"
 
-    st.dataframe(
-        yearly_mean_table,
-        use_container_width=True
+    climatological_mean = (
+        result["climatological_monthly_mean"]
+        .copy()
     )
 
-    # --------------------------------------------------------
-    # ALL YEARS LINE GRAPH
-    # --------------------------------------------------------
-    fig, ax = plt.subplots(
-        figsize=(14, 8)
+    # Pastikan ikut susunan bulan
+    yearly_mean_table = yearly_mean_table[
+        months
+    ]
+
+    climatological_mean = (
+        climatological_mean.reindex(months)
     )
 
-    fig.patch.set_facecolor(BG_COLOR)
-    ax.set_facecolor(BG_COLOR)
+    # ========================================================
+    # SUB TABS
+    # ========================================================
 
-    for year in yearly_mean_table.index:
+    all_year_tabs = st.tabs([
+        "📈 Monthly Temperature",
+        "🔥 Heatmap",
+        "📊 Anomaly",
+        "📋 Statistics",
+        "📦 Boxplot"
+    ])
 
-        values = yearly_mean_table.loc[
-            year,
-            months
-        ]
 
-        ax.plot(
-            months,
-            values,
-            marker="o",
-            linewidth=1.5,
-            alpha=0.65,
-            label=str(year)
+    # ========================================================
+    # TAB 1 — MONTHLY TEMPERATURE
+    # ========================================================
+
+    with all_year_tabs[0]:
+
+        st.subheader(
+            "📈 Monthly Mean Temperature — All Years"
         )
 
-    ax.plot(
-        months,
-        result["climatological_monthly_mean"].values,
-        color=LINE_COLOR,
-        marker="o",
-        linewidth=3,
-        label=f"Mean {YEAR_RANGE_TEXT}"
-    )
+        st.dataframe(
+            yearly_mean_table,
+            use_container_width=True
+        )
 
-    ax.set_title(
-        f"{result['file_name']}\n"
-        f"Monthly Mean Temperature by Year",
-        fontsize=16,
-        fontweight="bold"
-    )
+        # ----------------------------------------------------
+        # LINE GRAPH
+        # ----------------------------------------------------
 
-    ax.set_xlabel(
-        "Month",
-        fontsize=12
-    )
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
 
-    ax.set_ylabel(
-        "Temperature (°C)",
-        fontsize=12
-    )
+        fig.patch.set_facecolor(BG_COLOR)
+        ax.set_facecolor(BG_COLOR)
 
-    ax.grid(
-        True,
-        axis="y",
-        linestyle="--",
-        alpha=0.4
-    )
+        for year in yearly_mean_table.index:
 
-    ax.legend(
-        bbox_to_anchor=(1.02, 1),
-        loc="upper left",
-        fontsize=8
-    )
+            values = yearly_mean_table.loc[
+                year,
+                months
+            ]
 
-    plt.tight_layout()
-    st.pyplot(
-        fig,
-        use_container_width=True
-    )
+            ax.plot(
+                months,
+                values,
+                marker="o",
+                linewidth=1.5,
+                alpha=0.60,
+                label=str(int(year))
+            )
 
-    plt.close(fig)
+        # Mean keseluruhan
+        ax.plot(
+            months,
+            climatological_mean.values,
+            color=LINE_COLOR,
+            marker="o",
+            linewidth=3,
+            label=f"Mean {YEAR_RANGE_TEXT}"
+        )
+
+        ax.set_title(
+            f"{result['file_name']}\n"
+            f"Monthly Mean Temperature by Year",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel(
+            "Month",
+            fontsize=12
+        )
+
+        ax.set_ylabel(
+            "Temperature (°C)",
+            fontsize=12
+        )
+
+        ax.set_ylim(
+            TEMP_MIN,
+            TEMP_MAX
+        )
+
+        ax.grid(
+            True,
+            axis="y",
+            linestyle="--",
+            alpha=0.4
+        )
+
+        ax.legend(
+            bbox_to_anchor=(1.02, 1),
+            loc="upper left",
+            fontsize=8
+        )
+
+        plt.xticks(
+            rotation=45
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        plt.close(fig)
+
+
+    # ========================================================
+    # TAB 2 — HEATMAP
+    # ========================================================
+
+    with all_year_tabs[1]:
+
+        st.subheader(
+            "🔥 Heatmap Suhu Bulanan Mengikut Tahun"
+        )
+
+        heatmap_data = (
+            yearly_mean_table
+            .copy()
+        )
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        fig.patch.set_facecolor(BG_COLOR)
+        ax.set_facecolor(BG_COLOR)
+
+        im = ax.imshow(
+            heatmap_data.values,
+            aspect="auto"
+        )
+
+        # ----------------------------------------------------
+        # AXIS
+        # ----------------------------------------------------
+
+        ax.set_xticks(
+            np.arange(len(months))
+        )
+
+        ax.set_xticklabels(
+            months
+        )
+
+        ax.set_yticks(
+            np.arange(len(heatmap_data.index))
+        )
+
+        ax.set_yticklabels(
+            heatmap_data.index.astype(int)
+        )
+
+        ax.set_xlabel(
+            "Month",
+            fontsize=12
+        )
+
+        ax.set_ylabel(
+            "Year",
+            fontsize=12
+        )
+
+        ax.set_title(
+            f"{result['file_name']}\n"
+            f"Monthly Mean Temperature Heatmap "
+            f"{YEAR_RANGE_TEXT}",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        # ----------------------------------------------------
+        # NILAI DALAM HEATMAP
+        # ----------------------------------------------------
+
+        for i in range(
+            len(heatmap_data.index)
+        ):
+
+            for j in range(
+                len(months)
+            ):
+
+                value = heatmap_data.iloc[
+                    i,
+                    j
+                ]
+
+                if pd.notna(value):
+
+                    ax.text(
+                        j,
+                        i,
+                        f"{value:.1f}",
+                        ha="center",
+                        va="center",
+                        fontsize=8
+                    )
+
+        cbar = fig.colorbar(
+            im,
+            ax=ax
+        )
+
+        cbar.set_label(
+            "Temperature (°C)"
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        plt.close(fig)
+
+
+    # ========================================================
+    # TAB 3 — ANOMALY
+    # ========================================================
+
+    with all_year_tabs[2]:
+
+        st.subheader(
+            "📊 Temperature Anomaly — All Years"
+        )
+
+        # ----------------------------------------------------
+        # KIRA ANOMALY
+        # ----------------------------------------------------
+
+        anomaly_data = (
+            yearly_mean_table
+            .subtract(
+                climatological_mean,
+                axis="columns"
+            )
+        )
+
+        anomaly_data = (
+            anomaly_data
+            .round(2)
+        )
+
+        anomaly_data.index.name = "Year"
+
+        st.dataframe(
+            anomaly_data,
+            use_container_width=True
+        )
+
+        # ----------------------------------------------------
+        # HEATMAP ANOMALY
+        # ----------------------------------------------------
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        fig.patch.set_facecolor(BG_COLOR)
+        ax.set_facecolor(BG_COLOR)
+
+        im = ax.imshow(
+            anomaly_data.values,
+            aspect="auto"
+        )
+
+        ax.set_xticks(
+            np.arange(len(months))
+        )
+
+        ax.set_xticklabels(
+            months
+        )
+
+        ax.set_yticks(
+            np.arange(len(anomaly_data.index))
+        )
+
+        ax.set_yticklabels(
+            anomaly_data.index.astype(int)
+        )
+
+        ax.set_xlabel(
+            "Month",
+            fontsize=12
+        )
+
+        ax.set_ylabel(
+            "Year",
+            fontsize=12
+        )
+
+        ax.set_title(
+            f"{result['file_name']}\n"
+            f"Temperature Anomaly "
+            f"{YEAR_RANGE_TEXT}",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        # ----------------------------------------------------
+        # NILAI ANOMALY
+        # ----------------------------------------------------
+
+        for i in range(
+            len(anomaly_data.index)
+        ):
+
+            for j in range(
+                len(months)
+            ):
+
+                value = anomaly_data.iloc[
+                    i,
+                    j
+                ]
+
+                if pd.notna(value):
+
+                    ax.text(
+                        j,
+                        i,
+                        f"{value:+.1f}",
+                        ha="center",
+                        va="center",
+                        fontsize=8
+                    )
+
+        cbar = fig.colorbar(
+            im,
+            ax=ax
+        )
+
+        cbar.set_label(
+            "Temperature Anomaly (°C)"
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        plt.close(fig)
+
+        # ----------------------------------------------------
+        # SUMMARY ANOMALY
+        # ----------------------------------------------------
+
+        anomaly_values = (
+            anomaly_data
+            .stack()
+            .dropna()
+        )
+
+        if not anomaly_values.empty:
+
+            col1, col2, col3 = st.columns(3)
+
+            col1.metric(
+                "📈 Maximum Positive Anomaly",
+                f"{anomaly_values.max():.2f} °C"
+            )
+
+            col2.metric(
+                "📉 Maximum Negative Anomaly",
+                f"{anomaly_values.min():.2f} °C"
+            )
+
+            col3.metric(
+                "📊 Mean Anomaly",
+                f"{anomaly_values.mean():.2f} °C"
+            )
+
+
+    # ========================================================
+    # TAB 4 — STATISTICS
+    # ========================================================
+
+    with all_year_tabs[3]:
+
+        st.subheader(
+            "📋 Temperature Statistics — All Years"
+        )
+
+        # ----------------------------------------------------
+        # DATA LONG
+        # ----------------------------------------------------
+
+        stats_long = (
+            yearly_mean_table
+            .reset_index()
+            .melt(
+                id_vars=["Year"],
+                value_vars=months,
+                var_name="Month",
+                value_name="Temperature"
+            )
+        )
+
+        stats_long["Temperature"] = pd.to_numeric(
+            stats_long["Temperature"],
+            errors="coerce"
+        )
+
+        stats_long = stats_long.dropna(
+            subset=["Temperature"]
+        )
+
+        # ----------------------------------------------------
+        # OVERALL STATISTICS
+        # ----------------------------------------------------
+
+        overall_stats = pd.DataFrame({
+            "Statistic": [
+                "Count",
+                "Mean",
+                "Median",
+                "Minimum",
+                "Maximum",
+                "Standard Deviation",
+                "Q1 (25%)",
+                "Q3 (75%)",
+                "Range"
+            ],
+            "Value": [
+                stats_long["Temperature"].count(),
+                stats_long["Temperature"].mean(),
+                stats_long["Temperature"].median(),
+                stats_long["Temperature"].min(),
+                stats_long["Temperature"].max(),
+                stats_long["Temperature"].std(),
+                stats_long["Temperature"].quantile(0.25),
+                stats_long["Temperature"].quantile(0.75),
+                (
+                    stats_long["Temperature"].max()
+                    -
+                    stats_long["Temperature"].min()
+                )
+            ]
+        })
+
+        overall_stats["Value"] = (
+            overall_stats["Value"]
+            .round(2)
+        )
+
+        st.markdown(
+            "### 📊 Statistik Keseluruhan"
+        )
+
+        st.dataframe(
+            overall_stats,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # ----------------------------------------------------
+        # MONTHLY STATISTICS
+        # ----------------------------------------------------
+
+        st.markdown(
+            "### 📅 Statistik Mengikut Bulan"
+        )
+
+        monthly_stats = (
+            stats_long
+            .groupby("Month")["Temperature"]
+            .agg([
+                "count",
+                "mean",
+                "median",
+                "min",
+                "max",
+                "std"
+            ])
+            .reindex(months)
+            .reset_index()
+        )
+
+        monthly_stats.columns = [
+            "Month",
+            "Count",
+            "Mean (°C)",
+            "Median (°C)",
+            "Minimum (°C)",
+            "Maximum (°C)",
+            "Std Dev (°C)"
+        ]
+
+        monthly_stats = (
+            monthly_stats
+            .round(2)
+        )
+
+        st.dataframe(
+            monthly_stats,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # ----------------------------------------------------
+        # DOWNLOAD STATISTICS
+        # ----------------------------------------------------
+
+        csv_stats = (
+            monthly_stats
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "⬇️ Download Monthly Statistics",
+            data=csv_stats,
+            file_name=(
+                f"monthly_temperature_statistics_"
+                f"{result['file_name']}.csv"
+            ),
+            mime="text/csv",
+            key="download_all_year_monthly_statistics"
+        )
+
+
+    # ========================================================
+    # TAB 5 — BOXPLOT
+    # ========================================================
+
+    with all_year_tabs[4]:
+
+        st.subheader(
+            "📦 Boxplot Temperature Mengikut Bulan"
+        )
+
+        box_data = []
+
+        for month in months:
+
+            values = (
+                stats_long.loc[
+                    stats_long["Month"] == month,
+                    "Temperature"
+                ]
+                .dropna()
+                .values
+            )
+
+            box_data.append(
+                values
+            )
+
+        fig, ax = plt.subplots(
+            figsize=(FIG_WIDTH, FIG_HEIGHT)
+        )
+
+        fig.patch.set_facecolor(BG_COLOR)
+        ax.set_facecolor(BG_COLOR)
+
+        ax.boxplot(
+            box_data,
+            labels=months,
+            patch_artist=False
+        )
+
+        ax.set_title(
+            f"{result['file_name']}\n"
+            f"Monthly Temperature Distribution "
+            f"{YEAR_RANGE_TEXT}",
+            fontsize=16,
+            fontweight="bold"
+        )
+
+        ax.set_xlabel(
+            "Month",
+            fontsize=12
+        )
+
+        ax.set_ylabel(
+            "Temperature (°C)",
+            fontsize=12
+        )
+
+        ax.set_ylim(
+            TEMP_MIN,
+            TEMP_MAX
+        )
+
+        ax.grid(
+            True,
+            axis="y",
+            linestyle="--",
+            alpha=0.4
+        )
+
+        plt.xticks(
+            rotation=45
+        )
+
+        plt.tight_layout()
+
+        st.pyplot(
+            fig,
+            use_container_width=True
+        )
+
+        plt.close(fig)
+
+        # ----------------------------------------------------
+        # SUMMARY BOXPLOT
+        # ----------------------------------------------------
+
+        box_summary = (
+            stats_long
+            .groupby("Month")["Temperature"]
+            .describe()
+            .reindex(months)
+            .round(2)
+        )
+
+        st.markdown(
+            "### 📋 Ringkasan Boxplot"
+        )
+
+        st.dataframe(
+            box_summary,
+            use_container_width=True
+        )
+
+        # ----------------------------------------------------
+        # DOWNLOAD BOXPLOT DATA
+        # ----------------------------------------------------
+
+        csv_boxplot = (
+            box_summary
+            .to_csv()
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "⬇️ Download Boxplot Statistics",
+            data=csv_boxplot,
+            file_name=(
+                f"boxplot_temperature_statistics_"
+                f"{result['file_name']}.csv"
+            ),
+            mime="text/csv",
+            key="download_all_year_boxplot"
+        )
 
 # ============================================================
 # MAIN TAB 3 — STATION COMPARISON
