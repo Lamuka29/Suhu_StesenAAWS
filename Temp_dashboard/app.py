@@ -3212,95 +3212,151 @@ with main_tabs[3]:
             heatwave_data["Temperature"]
             .apply(get_heat_level)
         )
-
+        
         # ====================================================
-        # DETECT CONSECUTIVE EVENTS
+        # DETECT CONSECUTIVE HOT DAYS
         # ====================================================
-
+        
         detected_events = []
-
-        current_level = None
-        start_date = None
+        
+        current_event = []
         previous_date = None
-
+        
         for _, row in heatwave_data.iterrows():
-
+        
             current_date = row["Date"]
-            level = row["Tahap"]
-
+            temperature = row["Temperature"]
+        
+            # ------------------------------------------------
+            # SUHU PANAS
+            # ------------------------------------------------
+        
+            if temperature >= 35:
+        
+                # Hari pertama event
+                if not current_event:
+        
+                    current_event = [row]
+        
+                # Sambung event jika hari berturut-turut
+                elif (
+                    previous_date is not None
+                    and (current_date - previous_date).days == 1
+                ):
+        
+                    current_event.append(row)
+        
+                # Kalau ada gap tarikh → tutup event lama
+                else:
+        
+                    if len(current_event) >= 3:
+        
+                        event_df = pd.DataFrame(
+                            current_event
+                        )
+        
+                        max_temp = event_df[
+                            "Temperature"
+                        ].max()
+        
+                        # Tentukan tahap berdasarkan
+                        # suhu maksimum event
+                        if max_temp > 40:
+        
+                            event_level = "Tahap 3"
+        
+                        elif max_temp >= 37:
+        
+                            event_level = "Tahap 2"
+        
+                        else:
+        
+                            event_level = "Tahap 1"
+        
+                        detected_events.append({
+                            "Tahap": event_level,
+                            "Tarikh Mula": event_df["Date"].min(),
+                            "Tarikh Tamat": event_df["Date"].max(),
+                            "Bilangan Hari": len(event_df),
+                            "Suhu Maksimum (°C)": max_temp
+                        })
+        
+                    current_event = [row]
+        
             # ------------------------------------------------
             # NORMAL / MISSING
             # ------------------------------------------------
-
-            if level in [
-                "Normal",
-                "Missing"
-            ]:
-
-                if (
-                    current_level is not None
-                    and start_date is not None
-                    and previous_date is not None
-                ):
-
-                    duration = (
-                        previous_date
-                        - start_date
-                    ).days + 1
-
-                    if duration >= 3:
-
-                        detected_events.append({
-                            "Tahap": current_level,
-                            "Tarikh Mula": start_date,
-                            "Tarikh Tamat": previous_date,
-                            "Bilangan Hari": duration
-                        })
-
-                current_level = None
-                start_date = None
-
-            # ------------------------------------------------
-            # HOT
-            # ------------------------------------------------
-
+        
             else:
-
-                if current_level is None:
-
-                    current_level = level
-                    start_date = current_date
-
-                elif level == current_level:
-
-                    pass
-
-                else:
-
-                    if (
-                        start_date is not None
-                        and previous_date is not None
-                    ):
-
-                        duration = (
-                            previous_date
-                            - start_date
-                        ).days + 1
-
-                        if duration >= 3:
-
-                            detected_events.append({
-                                "Tahap": current_level,
-                                "Tarikh Mula": start_date,
-                                "Tarikh Tamat": previous_date,
-                                "Bilangan Hari": duration
-                            })
-
-                    current_level = level
-                    start_date = current_date
-
+        
+                if len(current_event) >= 3:
+        
+                    event_df = pd.DataFrame(
+                        current_event
+                    )
+        
+                    max_temp = event_df[
+                        "Temperature"
+                    ].max()
+        
+                    if max_temp > 40:
+        
+                        event_level = "Tahap 3"
+        
+                    elif max_temp >= 37:
+        
+                        event_level = "Tahap 2"
+        
+                    else:
+        
+                        event_level = "Tahap 1"
+        
+                    detected_events.append({
+                        "Tahap": event_level,
+                        "Tarikh Mula": event_df["Date"].min(),
+                        "Tarikh Tamat": event_df["Date"].max(),
+                        "Bilangan Hari": len(event_df),
+                        "Suhu Maksimum (°C)": max_temp
+                    })
+        
+                current_event = []
+        
             previous_date = current_date
-
+        
+        
+        # ====================================================
+        # CHECK LAST EVENT
+        # ====================================================
+        
+        if len(current_event) >= 3:
+        
+            event_df = pd.DataFrame(
+                current_event
+            )
+        
+            max_temp = event_df[
+                "Temperature"
+            ].max()
+        
+            if max_temp > 40:
+        
+                event_level = "Tahap 3"
+        
+            elif max_temp >= 37:
+        
+                event_level = "Tahap 2"
+        
+            else:
+        
+                event_level = "Tahap 1"
+        
+            detected_events.append({
+                "Tahap": event_level,
+                "Tarikh Mula": event_df["Date"].min(),
+                "Tarikh Tamat": event_df["Date"].max(),
+                "Bilangan Hari": len(event_df),
+                "Suhu Maksimum (°C)": max_temp
+            })
         # ====================================================
         # CHECK LAST EVENT
         # ====================================================
