@@ -2905,12 +2905,13 @@ with main_tabs[1]:
     with all_year_tabs[1]:
     
         st.subheader(
-            "📊 Temperature Anomaly — All Years"
+            f"Temperature Anomaly — All Years "
+            f"Relative to Climatological Mean {YEAR_RANGE_TEXT}"
         )
     
-        # ----------------------------------------------------
-        # KIRA ANOMALY
-        # ----------------------------------------------------
+        # ====================================================
+        # KIRA ANOMALY SETIAP TAHUN
+        # ====================================================
     
         anomaly_data = (
             yearly_mean_table
@@ -2920,81 +2921,75 @@ with main_tabs[1]:
             )
         )
     
-        anomaly_data = (
-            anomaly_data
-            .round(2)
-        )
+        anomaly_data = anomaly_data.round(2)
     
         anomaly_data.index.name = "Year"
     
         # ----------------------------------------------------
-        # PAPAR TABLE ANOMALY
+        # PURATA ANOMALY SETIAP TAHUN
         # ----------------------------------------------------
     
-        st.dataframe(
-            anomaly_data,
-            use_container_width=True
-        )
-    
-        # ====================================================
-        # MONTHLY MEAN ANOMALY
-        # ====================================================
-    
-        monthly_anomaly = (
+        annual_anomaly = (
             anomaly_data
-            .mean(axis=0)
-            .reindex(months)
-        )
-    
-        monthly_anomaly = (
-            monthly_anomaly
+            .mean(axis=1)
             .round(2)
         )
     
-        # ----------------------------------------------------
-        # DATAFRAME SUMMARY
-        # ----------------------------------------------------
+        # ====================================================
+        # TABLE ANOMALY
+        # ====================================================
     
-        anomaly_summary = pd.DataFrame({
-            "Month": months,
-            "Mean Anomaly (°C)": monthly_anomaly.values
+        anomaly_table = pd.DataFrame({
+            "Year": annual_anomaly.index.astype(int),
+            "Mean Temperature Anomaly (°C)":
+                annual_anomaly.values
         })
     
-        st.markdown(
-            "### 📋 Monthly Mean Anomaly"
-        )
-    
         st.dataframe(
-            anomaly_summary,
+            anomaly_table,
             use_container_width=True,
             hide_index=True
         )
     
         # ====================================================
-        # BAR CHART ANOMALY
+        # PLOT ANNUAL ANOMALY
         # ====================================================
     
         fig, ax = plt.subplots(
-            figsize=(FIG_WIDTH, FIG_HEIGHT)
+            figsize=(14, 8)
         )
     
         fig.patch.set_facecolor(BG_COLOR)
         ax.set_facecolor(BG_COLOR)
     
-        x = np.arange(len(months))
+        x = np.arange(
+            len(annual_anomaly)
+        )
     
         # ----------------------------------------------------
-        # BAR
+        # WARNA BAR
+        # POSITIVE = ORANGE
+        # NEGATIVE = BLUE
         # ----------------------------------------------------
+    
+        anomaly_colors = [
+            (
+                "darkorange"
+                if pd.notna(value) and value >= 0
+                else "steelblue"
+                if pd.notna(value)
+                else "lightgray"
+            )
+            for value in annual_anomaly.values
+        ]
     
         bars = ax.bar(
             x,
-            monthly_anomaly.values,
-            width=0.65,
-            color=st.session_state.bar_colors[0],
+            annual_anomaly.values,
+            width=0.60,
+            color=anomaly_colors,
             edgecolor="black",
-            linewidth=0.8,
-            alpha=0.80
+            linewidth=0.8
         )
     
         # ----------------------------------------------------
@@ -3004,45 +2999,40 @@ with main_tabs[1]:
         ax.axhline(
             0,
             color="black",
-            linewidth=1.2
+            linewidth=1
         )
     
-        # ----------------------------------------------------
-        # NILAI ANOMALY ATAS BAR
-        # ----------------------------------------------------
+        # ====================================================
+        # LABEL NILAI
+        # ====================================================
     
         for bar, value in zip(
             bars,
-            monthly_anomaly.values
+            annual_anomaly.values
         ):
     
             if pd.notna(value):
     
                 if value >= 0:
-    
-                    ax.text(
-                        bar.get_x()
-                        + bar.get_width() / 2,
-                        bar.get_height() + 0.03,
-                        f"{value:+.2f}",
-                        ha="center",
-                        va="bottom",
-                        fontsize=9,
-                        fontweight="bold"
-                    )
-    
+                    offset = 5
+                    vertical = "bottom"
                 else:
+                    offset = -12
+                    vertical = "top"
     
-                    ax.text(
+                ax.annotate(
+                    f"{value:+.2f} °C",
+                    (
                         bar.get_x()
                         + bar.get_width() / 2,
-                        bar.get_height() - 0.03,
-                        f"{value:+.2f}",
-                        ha="center",
-                        va="top",
-                        fontsize=9,
-                        fontweight="bold"
-                    )
+                        value
+                    ),
+                    xytext=(0, offset),
+                    textcoords="offset points",
+                    ha="center",
+                    va=vertical,
+                    fontsize=9
+                )
     
         # ====================================================
         # TITLE
@@ -3050,14 +3040,15 @@ with main_tabs[1]:
     
         ax.set_title(
             f"{result['file_name']}\n"
-            f"Monthly Mean Temperature Anomaly\n"
+            f"Annual Temperature Anomaly "
+            f"Relative to Climatological Mean\n"
             f"{YEAR_RANGE_TEXT}",
             fontsize=16,
             fontweight="bold"
         )
     
         ax.set_xlabel(
-            "Month",
+            "Year",
             fontsize=12
         )
     
@@ -3067,7 +3058,11 @@ with main_tabs[1]:
         )
     
         ax.set_xticks(x)
-        ax.set_xticklabels(months)
+    
+        ax.set_xticklabels(
+            annual_anomaly.index.astype(int),
+            rotation=45
+        )
     
         ax.grid(
             True,
@@ -3100,73 +3095,76 @@ with main_tabs[1]:
         img_anomaly.seek(0)
     
         st.download_button(
-            "📥 Download Anomaly Graph",
+            "📥 Download Anomaly PNG",
             data=img_anomaly.getvalue(),
             file_name=(
                 f"{result['file_name']}_"
-                f"monthly_anomaly_{YEAR_RANGE_TEXT}.png"
+                f"annual_temperature_anomaly_"
+                f"{YEAR_RANGE_TEXT}.png"
             ),
             mime="image/png",
             key=(
-                f"download_all_years_anomaly_graph_"
+                f"download_all_years_"
+                f"annual_temperature_anomaly_"
                 f"{result['file_name']}"
             )
         )
     
-        plt.close(fig)
-    
         # ====================================================
-        # SUMMARY ANOMALY
-        # ====================================================
-    
-        anomaly_values = (
-            anomaly_data
-            .stack()
-            .dropna()
-        )
-    
-        if not anomaly_values.empty:
-    
-            col1, col2, col3 = st.columns(3)
-    
-            col1.metric(
-                "📈 Maximum Positive Anomaly",
-                f"{anomaly_values.max():.2f} °C"
-            )
-    
-            col2.metric(
-                "📉 Maximum Negative Anomaly",
-                f"{anomaly_values.min():.2f} °C"
-            )
-    
-            col3.metric(
-                "📊 Mean Anomaly",
-                f"{anomaly_values.mean():.2f} °C"
-            )
-    
-        # ====================================================
-        # DOWNLOAD SUMMARY TABLE
+        # DOWNLOAD TABLE
         # ====================================================
     
         csv_anomaly = (
-            anomaly_summary
+            anomaly_table
             .to_csv(index=False)
             .encode("utf-8")
         )
     
         st.download_button(
-            "⬇️ Download Monthly Anomaly Table",
+            "📥 Download Anomaly Table CSV",
             data=csv_anomaly,
             file_name=(
                 f"{result['file_name']}_"
-                f"monthly_anomaly_{YEAR_RANGE_TEXT}.csv"
+                f"annual_temperature_anomaly_"
+                f"{YEAR_RANGE_TEXT}.csv"
             ),
             mime="text/csv",
             key=(
-                f"download_all_years_anomaly_table_"
+                f"download_all_years_"
+                f"annual_temperature_anomaly_table_"
                 f"{result['file_name']}"
             )
         )
+    
+        # ====================================================
+        # SUMMARY
+        # ====================================================
+    
+        valid_anomaly = (
+            annual_anomaly
+            .dropna()
+        )
+    
+        if not valid_anomaly.empty:
+    
+            col1, col2, col3 = st.columns(3)
+    
+            col1.metric(
+                "📈 Highest Positive Anomaly",
+                f"{valid_anomaly.max():+.2f} °C"
+            )
+    
+            col2.metric(
+                "📉 Lowest Anomaly",
+                f"{valid_anomaly.min():+.2f} °C"
+            )
+    
+            col3.metric(
+                "📊 Mean Annual Anomaly",
+                f"{valid_anomaly.mean():+.2f} °C"
+            )
+    
+        plt.close(fig)
     # ========================================================
     # TAB 4 — STATISTICS
     # ========================================================
