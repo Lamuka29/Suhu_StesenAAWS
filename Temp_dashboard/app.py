@@ -34,28 +34,414 @@ TEMP_MAX = 40
 FIG_WIDTH = 14
 FIG_HEIGHT = 8
 
+
 # ============================================================
-# FILE UPLOAD
+# RAW AAWS EXTRACTION — BOLEH TERUS DIGUNAKAN OLEH ANALISIS SUHU
 # ============================================================
-uploaded_files = st.file_uploader(
-    "📁 Upload Excel file data suhu mengikut stesen AAWS",
+# Modul ini diadaptasi daripada modul "data extract":
+# - Cari header Year / Month / Day secara automatik
+# - Baca 4 column pertama sebagai Year / Month / Day / Temperature
+# - Kumpulkan data mengikut stesen
+# - Tukar data long format kepada format harian Jan-Dec
+# - Hantar hasil extraction terus ke fungsi analisis suhu di bawah
+
+def find_temperature_header_row(raw):
+    for i in range(len(raw)):
+        row = [
+            str(x).strip().lower() if pd.notna(x) else ""
+            for x in raw.iloc[i].tolist()
+        ]
+        text_row = " ".join(row)
+
+        if (
+            ("year" in text_row or "tahun" in text_row)
+            and ("month" in text_row or "bulan" in text_row)
+            and ("day" in text_row or "hari" in text_row)
+        ):
+            return i
+
+    return None
+
+
+def clean_station_name(name):
+    name = str(name).replace(":", "").strip()
+    name = re.sub(r'[<>:"/\\|?*]', "_", name)
+    name = re.sub(r"\s+", " ", name)
+    return name.strip(" .") or "UNKNOWN_STATION"
+
+
+def extract_value_right(row_series, start_idx):
+    for k in range(start_idx + 1, len(row_series)):
+        value = row_series.iloc[k]
+
+        if pd.notna(value) and str(value).strip() not in ("", ":"):
+            value = str(value).strip()
+            if value.startswith(":"):
+                value = value[1:].strip()
+            return value
+
+    return ""
+
+
+def get_raw_station_info(raw, default_sheet_name=""):
+    station = ""
+    latitude = ""
+    longitude = ""
+    elevation = ""
+
+    for i in range(min(15, len(raw))):
+        row = raw.iloc[i]
+
+        for j in range(len(row)):
+            cell = row.iloc[j]
+
+            if pd.isna(cell):
+                continue
+
+            text_cell = str(cell).strip()
+            lower = text_cell.lower()
+
+            if not station and any(
+                key in lower
+                for key in [
+                    "station name", "nama stesen",
+                    "station", "stesen", "stn"
+                ]
+            ):
+                if ":" in text_cell and not lower.endswith(":"):
+                    station = text_cell.split(":", 1)[1].strip()
+
+                if not station:
+                    station = extract_value_right(row, j)
+
+            if not latitude and "lat" in lower:
+                if ":" in text_cell and not lower.endswith(":"):
+                    latitude = text_cell.split(":", 1)[1].strip()
+
+                if not latitude:
+                    latitude = extract_value_right(row, j)
+
+            if not longitude and ("long" in lower or "lon" in lower):
+                if ":" in text_cell and not lower.endswith(":"):
+                    longitude = text_cell.split(":", 1)[1].strip()
+
+                if not longitude:
+                    longitude = extract_value_right(row, j)
+
+            if not elevation and ("elev" in lower or "alt" in lower):
+                if ":" in text_cell and not lower.endswith(":"):
+                    elevation = text_cell.split(":", 1)[1].strip()
+
+                if not elevation:
+                    elevation = extract_value_right(row, j)
+
+    station = station.replace(":", "").strip()
+    latitude = latitude.replace(":", "").strip()
+    longitude = longitude.replace(":", "").strip()
+    elevation = elevation.replace(":", "").strip()
+
+    if not station:
+        station = str(default_sheet_name).strip()
+
+    return station, latitude, longitude, elevation
+
+
+def read_raw_temperature_sheet(excel_file, sheet):
+    try:
+        raw = pd.read_excel(
+            excel_file,
+            sheet_name=sheet,
+            header=None
+        )
+
+        header_row = find_temperature_header_row(raw)
+
+        if header_row is None:
+            return None, None
+
+        station_info = get_raw_station_info(
+            raw,
+            default_sheet_name=sheet
+        )
+
+        data = (
+            raw.iloc[header_row + 1:]
+            .copy()
+            .iloc[:, :4]
+        )
+
+        data.columns = [
+            "Year",
+            "Month",
+            "Day",
+            "Temperature"
+        ]
+
+        data["Year"] = pd.to_numeric(
+            data["Year"],
+            errors="coerce"
+        )
+
+        data["Month"] = pd.to_numeric(
+            data["Month"],
+            errors="coerce"
+        )
+
+        data["Day"] = pd.to_numeric(
+            data["Day"],
+            errors="coerce"
+        )
+
+        data["Temperature"] = pd.to_numeric(
+            data["Temperature"],
+            errors="coerce"
+        )
+
+        data = data.dropna(
+            subset=["Year", "Month", "Day"]
+        )
+
+        if data.empty:
+            return None, station_info
+
+        data["Year"] = data["Year"].astype(int)
+        data["Month"] = data["Month"].astype(int)
+        data["Day"] = data["Day"].astype(int)
+
+        # Hanya bulan/hari yang munasabah.
+        data = data[
+            data["Month"].between(1, 12)
+            & data["Day"].between(1, 31)
+        ].copy()
+
+        return data, station_info
+
+    except Exception:
+        return None, None
+
+
+def extract_raw_temperature_stations(raw_files):
+    station_groups = {}
+
+    for input_file in raw_files:
+        try:
+            excel = pd.ExcelFile(input_file)
+
+            for sheet in excel.sheet_names:
+                if str(sheet).lower().strip() in [
+                    "datalist",
+                    "summary",
+                    "senarai",
+                    "sheet1",
+                    "info"
+                ]:
+                    continue
+
+                data_part, info_part = read_raw_temperature_sheet(
+                    excel,
+                    sheet
+                )
+
+                if data_part is None:
+                    continue
+
+                raw_name = (
+                    str(info_part[0]).strip()
+                    if info_part and info_part[0]
+                    else str(sheet).strip()
+                )
+
+                station_name = raw_name.replace(":", "").strip()
+                station_key = re.sub(
+                    r"\s+",
+                    " ",
+                    station_name
+                ).strip().upper()
+
+                if station_key not in station_groups:
+                    station_groups[station_key] = {
+                        "name": station_name,
+                        "info": info_part,
+                        "data": []
+                    }
+
+                station_groups[station_key]["data"].append(
+                    data_part
+                )
+
+        except Exception as error:
+            st.error(
+                f"Ralat extraction pada {input_file.name}: {error}"
+            )
+
+    return station_groups
+
+
+def make_temperature_excel_from_extracted(
+    station_name,
+    station_info,
+    data_list
+):
+    """
+    Tukar hasil extraction Year-Month-Day-Temperature
+    kepada format Excel yang sama dengan format yang
+    dibaca oleh analisis suhu sedia ada.
+    """
+    data = pd.concat(
+        data_list,
+        ignore_index=True
+    )
+
+    data = data.drop_duplicates(
+        subset=["Year", "Month", "Day"],
+        keep="first"
+    )
+
+    data = data.sort_values(
+        by=["Year", "Month", "Day"]
+    )
+
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(
+        output,
+        engine="openpyxl"
+    ) as writer:
+
+        for year in sorted(data["Year"].unique()):
+            year = int(year)
+
+            year_data = data[
+                data["Year"] == year
+            ].copy()
+
+            table = year_data.pivot(
+                index="Day",
+                columns="Month",
+                values="Temperature"
+            )
+
+            table = (
+                table
+                .reindex(columns=range(1, 13))
+                .reindex(range(1, 32))
+            )
+
+            table.columns = months
+            table.index.name = "hari"
+
+            station, latitude, longitude, elevation = station_info
+
+            info_df = pd.DataFrame({
+                0: [
+                    "JABATAN METEOROLOGI MALAYSIA",
+                    "",
+                    "DAILY TEMPERATURE RECORD IN DEGREES CELSIUS",
+                    "",
+                    f"STATION  : {station}",
+                    f"LATITUDE : {latitude}",
+                    f"LONGITUDE: {longitude}",
+                    f"ELEVATION: {elevation}",
+                    f"YEAR     : {year}"
+                ]
+            })
+
+            info_df.to_excel(
+                writer,
+                sheet_name=str(year),
+                index=False,
+                header=False,
+                startrow=0
+            )
+
+            table.to_excel(
+                writer,
+                sheet_name=str(year),
+                startrow=6
+            )
+
+    output.seek(0)
+
+    # Berikan nama fail supaya boleh diproses oleh analyze_file().
+    output.name = f"{clean_station_name(station_name)}_extracted_temperature.xlsx"
+
+    return output
+
+
+# ============================================================
+# UPLOAD DATA RAW / DATA EXTRACT
+# ============================================================
+raw_temperature_files = st.file_uploader(
+    "📥 Upload fail RAW AAWS untuk extraction suhu "
+    "(pilihan — boleh terus digunakan dalam analisis)",
     type=["xlsx", "xls"],
-    accept_multiple_files=True
+    accept_multiple_files=True,
+    key="raw_temperature_upload"
 )
 
-if not uploaded_files:
-    st.info("Sila upload sekurang-kurangnya satu fail Excel.")
+# Hasil extraction disimpan dalam session state supaya
+# boleh digunakan semula selepas Streamlit rerun.
+if "extracted_temperature_stations" not in st.session_state:
+    st.session_state.extracted_temperature_stations = {}
+
+if raw_temperature_files:
+    with st.spinner("⏳ Sedang extract data suhu daripada fail RAW AAWS..."):
+        st.session_state.extracted_temperature_stations = (
+            extract_raw_temperature_stations(
+                raw_temperature_files
+            )
+        )
+
+
+# ============================================================
+# FILE UPLOAD — FORMAT EXCEL SUHU BERSTRUKTUR
+# ============================================================
+
+uploaded_files = st.file_uploader(
+    "📁 Upload Excel data suhu berstruktur "
+    "(sheet tahun + header baris ke-7)",
+    type=["xlsx", "xls"],
+    accept_multiple_files=True,
+    key="structured_temperature_upload"
+)
+
+if not uploaded_files and not st.session_state.extracted_temperature_stations:
+    st.info(
+        "Sila upload sama ada fail Excel suhu berstruktur "
+        "atau fail RAW AAWS di atas."
+    )
     st.markdown(
         """
-        **Format data yang diperlukan:**
-        - Sheet dinamakan mengikut tahun, contoh `2016`, `2017`, ..., `2025`
-        - Header berada pada baris ke-7 Excel
-        - Column A = `hari`
-        - Column B:M = `Jan` hingga `Dec`
-        - Nilai suhu dalam °C
+        **Pilihan input:**
+        - **RAW AAWS:** sistem akan extract Year, Month, Day dan Temperature
+          secara automatik.
+        - **Excel berstruktur:** sheet dinamakan mengikut tahun, header pada
+          baris ke-7, Column A = hari dan Column B:M = Jan hingga Dec.
         """
     )
     st.stop()
+
+# ============================================================
+# GABUNGKAN INPUT BERSTRUKTUR + HASIL EXTRACTION
+# ============================================================
+temperature_input_files = []
+
+if uploaded_files:
+    temperature_input_files.extend(uploaded_files)
+
+for station_key, station_dict in (
+    st.session_state.extracted_temperature_stations.items()
+):
+    extracted_excel = make_temperature_excel_from_extracted(
+        station_dict["name"],
+        station_dict["info"],
+        station_dict["data"]
+    )
+
+    temperature_input_files.append(
+        extracted_excel
+    )
+
 
 # ============================================================
 # DETECT AVAILABLE YEARS
@@ -63,8 +449,15 @@ if not uploaded_files:
 def get_available_years(uploaded_file):
     try:
         file_bytes = uploaded_file.getvalue()
-        ext = os.path.splitext(uploaded_file.name)[1].lower()
-        engine = "xlrd" if ext == ".xls" else "openpyxl"
+        ext = os.path.splitext(
+            getattr(uploaded_file, "name", "")
+        )[1].lower()
+
+        engine = (
+            "xlrd"
+            if ext == ".xls"
+            else "openpyxl"
+        )
 
         excel_file = pd.ExcelFile(
             io.BytesIO(file_bytes),
@@ -72,11 +465,14 @@ def get_available_years(uploaded_file):
         )
 
         available_years = []
+
         for sheet in excel_file.sheet_names:
             try:
                 year = int(str(sheet).strip())
+
                 if 1900 <= year <= 2100:
                     available_years.append(year)
+
             except Exception:
                 continue
 
@@ -89,15 +485,29 @@ def get_available_years(uploaded_file):
 all_available_years = set()
 file_years = {}
 
-for uploaded_file in uploaded_files:
-    detected_years = get_available_years(uploaded_file)
-    file_years[uploaded_file.name] = detected_years
-    all_available_years.update(detected_years)
+for input_file in temperature_input_files:
+    detected_years = get_available_years(input_file)
 
-all_available_years = sorted(all_available_years)
+    file_name = getattr(
+        input_file,
+        "name",
+        "extracted_temperature.xlsx"
+    )
+
+    file_years[file_name] = detected_years
+    all_available_years.update(
+        detected_years
+    )
+
+all_available_years = sorted(
+    all_available_years
+)
 
 if not all_available_years:
-    st.error("❌ Tiada sheet tahun yang sah dijumpai dalam fail Excel.")
+    st.error(
+        "❌ Tiada sheet tahun yang sah dijumpai "
+        "dalam input data suhu."
+    )
     st.stop()
 
 # ============================================================
@@ -564,13 +974,16 @@ with st.spinner("⏳ Sedang memproses semua fail Excel..."):
     results = []
     progress_bar = st.progress(0)
 
-    for i, uploaded_file in enumerate(uploaded_files):
+    for i, uploaded_file in enumerate(temperature_input_files):
 
         result = analyze_file(uploaded_file)
         results.append(result)
 
         progress_bar.progress(
-            int(((i + 1) / len(uploaded_files)) * 100)
+            int(
+                ((i + 1) / len(temperature_input_files))
+                * 100
+            )
         )
 
     progress_bar.empty()
@@ -771,8 +1184,7 @@ with st.expander(
 # GLOBAL SUMMARY
 # ============================================================
 st.success(
-    f"✅ {len(successful_results)} daripada "
-    f"{len(uploaded_files)} fail berjaya dianalisis."
+    f"✅ {len(successful_results)} input data berjaya dianalisis."
 )
 
 st.subheader("📌 Overall Analysis Summary")
@@ -804,6 +1216,7 @@ main_tabs = st.tabs([
     "📅 Target Year",
     "📊 All Years",
     "🔄 Station Comparison",
+    "📥 Data Extract",
     "🔥 Suhu Ekstrem"
 ])
 
@@ -3662,10 +4075,216 @@ with main_tabs[2]:
     plt.close(fig)
 
 # ============================================================
-# MAIN TAB 4 — SUHU TERTINGGI / EKSTREM
+# MAIN TAB 4 — DATA EXTRACT
+# ============================================================
+with main_tabs[3]:
+
+    st.header("📥 Hasil Data Extraction Suhu")
+
+    extracted_stations = (
+        st.session_state.extracted_temperature_stations
+    )
+
+    if not extracted_stations:
+        st.info(
+            "ℹ️ Tiada data RAW AAWS diextract pada sesi ini. "
+            "Upload fail RAW AAWS di bahagian atas untuk melihat "
+            "hasil extraction di sini."
+        )
+    else:
+        st.success(
+            f"✅ {len(extracted_stations)} stesen berjaya "
+            f"diextract dan terus digunakan dalam analisis suhu."
+        )
+
+        selected_extract_key = st.selectbox(
+            "🏢 Pilih stesen hasil extraction",
+            options=list(extracted_stations.keys()),
+            format_func=lambda key: extracted_stations[key]["name"],
+            key="selected_extracted_station"
+        )
+
+        selected_extract = extracted_stations[
+            selected_extract_key
+        ]
+
+        station_name_extract = selected_extract["name"]
+        station_info_extract = selected_extract["info"]
+
+        extracted_long = pd.concat(
+            selected_extract["data"],
+            ignore_index=True
+        )
+
+        extracted_long = (
+            extracted_long
+            .drop_duplicates(
+                subset=["Year", "Month", "Day"],
+                keep="first"
+            )
+            .sort_values(
+                ["Year", "Month", "Day"]
+            )
+            .reset_index(drop=True)
+        )
+
+        # --------------------------------------------------------
+        # STATION INFORMATION
+        # --------------------------------------------------------
+        st.subheader(
+            f"📍 Maklumat Stesen — {station_name_extract}"
+        )
+
+        info_col1, info_col2, info_col3, info_col4 = st.columns(4)
+
+        with info_col1:
+            st.metric(
+                "Latitude",
+                station_info_extract[1] or "N.A."
+            )
+
+        with info_col2:
+            st.metric(
+                "Longitude",
+                station_info_extract[2] or "N.A."
+            )
+
+        with info_col3:
+            st.metric(
+                "Elevation",
+                station_info_extract[3] or "N.A."
+            )
+
+        with info_col4:
+            st.metric(
+                "Bilangan Rekod",
+                f"{len(extracted_long):,}"
+            )
+
+        # --------------------------------------------------------
+        # DATA EXTRACTED — LONG FORMAT
+        # --------------------------------------------------------
+        st.subheader("📋 Data Extracted — Year / Month / Day / Temperature")
+
+        extract_display = extracted_long.copy()
+
+        extract_display["Temperature"] = (
+            pd.to_numeric(
+                extract_display["Temperature"],
+                errors="coerce"
+            )
+            .round(2)
+        )
+
+        st.dataframe(
+            extract_display,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        csv_extracted = (
+            extract_display
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "📥 Download Extracted Data CSV",
+            data=csv_extracted,
+            file_name=(
+                f"{clean_station_name(station_name_extract)}_"
+                f"temperature_extracted.csv"
+            ),
+            mime="text/csv",
+            key="download_extracted_temperature_csv"
+        )
+
+        # --------------------------------------------------------
+        # DATA EXTRACTED — FORMAT YANG TERUS DIGUNAKAN ANALISIS
+        # --------------------------------------------------------
+        st.subheader(
+            "📊 Data Extracted Dalam Format Harian Jan–Dec"
+        )
+
+        extracted_wide = (
+            extracted_long
+            .pivot(
+                index=["Year", "Day"],
+                columns="Month",
+                values="Temperature"
+            )
+            .reindex(columns=range(1, 13))
+            .reset_index()
+        )
+
+        extracted_wide.columns = [
+            "Year",
+            "hari",
+            *months
+        ]
+
+        extracted_wide = extracted_wide.round(2)
+
+        st.dataframe(
+            extracted_wide,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        csv_wide = (
+            extracted_wide
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "📥 Download Data Suhu Format Jan–Dec CSV",
+            data=csv_wide,
+            file_name=(
+                f"{clean_station_name(station_name_extract)}_"
+                f"temperature_daily_format.csv"
+            ),
+            mime="text/csv",
+            key="download_extracted_temperature_wide_csv"
+        )
+
+        # --------------------------------------------------------
+        # DOWNLOAD EXCEL YANG TERUS BOLEH DIGUNAKAN
+        # --------------------------------------------------------
+        extracted_excel_for_download = (
+            make_temperature_excel_from_extracted(
+                station_name_extract,
+                station_info_extract,
+                selected_extract["data"]
+            )
+        )
+
+        st.download_button(
+            "📥 Download Excel Extracted Temperature",
+            data=extracted_excel_for_download.getvalue(),
+            file_name=(
+                f"{clean_station_name(station_name_extract)}_"
+                f"extracted_temperature.xlsx"
+            ),
+            mime=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+            key="download_extracted_temperature_excel"
+        )
+
+        st.caption(
+            "💡 Data RAW yang dipaparkan di tab ini telah ditukar "
+            "kepada format yang sama dengan input analisis suhu. "
+            "Jadi hasil extraction terus masuk ke Target Year, "
+            "All Years, Station Comparison dan Suhu Ekstrem."
+        )
+
+# ============================================================
+# MAIN TAB 5 — SUHU TERTINGGI / EKSTREM
 # ============================================================
 
-with main_tabs[3]:
+with main_tabs[4]:
 
     st.header("🔥 Analisis Suhu Ekstrem")
 
@@ -5178,6 +5797,7 @@ st.divider()
 
 st.caption(
     "🌡️ Temperature Data Analysis | "
-    "Monthly Mean, Anomaly, Heatmap, Statistical Analysis, "
-    "Temperature Extremes, Quality Control and Station Comparison"
+    "RAW AAWS Extraction, Monthly Mean, Anomaly, Heatmap, "
+    "Statistical Analysis, Temperature Extremes, Quality Control "
+    "and Station Comparison"
 )
