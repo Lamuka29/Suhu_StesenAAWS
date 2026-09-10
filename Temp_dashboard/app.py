@@ -364,7 +364,7 @@ def make_temperature_excel_from_extracted(
     output.seek(0)
 
     # Berikan nama fail supaya boleh diproses oleh analyze_file().
-    output.name = f"{clean_station_name(station_name)}_extracted_temperature.xlsx"
+    output.name = f"{clean_station_name(station_name)}.xlsx"
 
     return output
 
